@@ -5,10 +5,12 @@ namespace App\Domain\Resource;
 use App\Domain\Concerns\HasPublicId;
 use App\Domain\Location\Location;
 use App\Domain\Organization\Organization;
+use App\Domain\Service\Service;
 use Database\Factories\ResourceFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Resource extends Model
 {
@@ -64,5 +66,13 @@ class Resource extends Model
     public function resourceGroup(): BelongsTo
     {
         return $this->belongsTo(ResourceGroup::class);
+    }
+
+    /**
+     * @return BelongsToMany<Service, $this>
+     */
+    public function services(): BelongsToMany
+    {
+        return $this->belongsToMany(Service::class, 'service_resource');
     }
 }

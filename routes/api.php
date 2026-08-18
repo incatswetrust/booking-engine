@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\LocationController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\ResourceController;
 use App\Http\Controllers\Api\V1\ResourceGroupController;
+use App\Http\Controllers\Api\V1\ServiceController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -27,5 +28,7 @@ Route::prefix('v1')->group(function () {
             ->parameter('resource-groups', 'resourceGroup');
 
         Route::apiResource('resources', ResourceController::class);
+
+        Route::apiResource('services', ServiceController::class);
     });
 });
