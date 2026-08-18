@@ -1,0 +1,77 @@
+name: booking-engine
+
+x-app-image: &app-image
+  build:
+    context: .
+    dockerfile: docker/php/Dockerfile
+  image: booking-engine/app:local
+  working_dir: /var/www/html
+  volumes:
+    - .:/var/www/html
+  environment:
+    - PHP_IDE_CONFIG=serverName=booking-engine
+  depends_on:
+    pgsql:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  app:
+    <<: *app-image
+    container_name: booking-engine-app
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: booking-engine-nginx
+    ports:
+      - "${APP_PORT:-8000}:80"
+    volumes:
+      - .:/var/www/html:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+
+  horizon:
+    <<: *app-image
+    container_name: booking-engine-horizon
+    command: ["php", "artisan", "horizon"]
+
+  scheduler:
+    <<: *app-image
+    container_name: booking-engine-scheduler
+    command: ["php", "artisan", "schedule:work"]
+
+  pgsql:
+    image: postgres:16-alpine
+    container_name: booking-engine-pgsql
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-booking_engine}
+      POSTGRES_USER: ${DB_USERNAME:-booking_engine}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    ports:
+      - "${FORWARD_DB_PORT:-5432}:5432"
+    volumes:
+      - pgsql-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-booking_engine} -d ${DB_DATABASE:-booking_engine}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: booking-engine-redis
+    ports:
+      - "${FORWARD_REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgsql-data:
+  redis-data:
