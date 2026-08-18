@@ -4,30 +4,47 @@ namespace App\Http\Controllers;
 
 use App\Application\Services\HealthCheckService;
 use Illuminate\Http\JsonResponse;
+use OpenApi\Attributes as OA;
 
+#[OA\Tag(name: 'Health')]
 class HealthController extends Controller
 {
     public function __construct(private readonly HealthCheckService $healthCheck) {}
 
-    /**
-     * Aggregate health: same checks as readiness, kept as a stable overview endpoint.
-     */
+    #[OA\Get(
+        path: '/health',
+        summary: 'Aggregate health (same as readiness)',
+        tags: ['Health'],
+        responses: [
+            new OA\Response(response: 200, description: 'All dependencies healthy'),
+            new OA\Response(response: 503, description: 'One or more dependencies unavailable'),
+        ],
+    )]
     public function health(): JsonResponse
     {
         return $this->ready();
     }
 
-    /**
-     * Liveness: the process can respond at all. No dependency checks.
-     */
+    #[OA\Get(
+        path: '/health/live',
+        summary: 'Liveness probe — process can respond at all, no dependency checks',
+        tags: ['Health'],
+        responses: [new OA\Response(response: 200, description: 'Process is alive')],
+    )]
     public function live(): JsonResponse
     {
         return response()->json(['status' => 'ok']);
     }
 
-    /**
-     * Readiness: the process can actually serve traffic (DB/Redis reachable).
-     */
+    #[OA\Get(
+        path: '/health/ready',
+        summary: 'Readiness probe — checks database and Redis connectivity',
+        tags: ['Health'],
+        responses: [
+            new OA\Response(response: 200, description: 'Ready to serve traffic'),
+            new OA\Response(response: 503, description: 'Database or Redis unreachable'),
+        ],
+    )]
     public function ready(): JsonResponse
     {
         $checks = $this->healthCheck->checks();
