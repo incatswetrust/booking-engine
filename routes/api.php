@@ -1,7 +1,10 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\LocationController;
 use App\Http\Controllers\Api\V1\OrganizationController;
+use App\Http\Controllers\Api\V1\ResourceController;
+use App\Http\Controllers\Api\V1\ResourceGroupController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -17,5 +20,12 @@ Route::prefix('v1')->group(function () {
 
         Route::post('organizations', [OrganizationController::class, 'store'])
             ->middleware('idempotent');
+
+        Route::apiResource('locations', LocationController::class);
+
+        Route::apiResource('resource-groups', ResourceGroupController::class)
+            ->parameter('resource-groups', 'resourceGroup');
+
+        Route::apiResource('resources', ResourceController::class);
     });
 });
