@@ -5,12 +5,15 @@ namespace App\Domain\Resource;
 use App\Domain\Concerns\HasPublicId;
 use App\Domain\Location\Location;
 use App\Domain\Organization\Organization;
+use App\Domain\Schedule\ScheduleException;
+use App\Domain\Schedule\ScheduleRule;
 use App\Domain\Service\Service;
 use Database\Factories\ResourceFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Resource extends Model
 {
@@ -74,5 +77,29 @@ class Resource extends Model
     public function services(): BelongsToMany
     {
         return $this->belongsToMany(Service::class, 'service_resource');
+    }
+
+    /**
+     * @return HasMany<ScheduleRule, $this>
+     */
+    public function scheduleRules(): HasMany
+    {
+        return $this->hasMany(ScheduleRule::class);
+    }
+
+    /**
+     * @return HasMany<ScheduleException, $this>
+     */
+    public function scheduleExceptions(): HasMany
+    {
+        return $this->hasMany(ScheduleException::class);
+    }
+
+    /**
+     * @return HasMany<ResourceBlock, $this>
+     */
+    public function blocks(): HasMany
+    {
+        return $this->hasMany(ResourceBlock::class);
     }
 }
