@@ -11,6 +11,7 @@
         "keepsuit/laravel-opentelemetry": "^2.2",
         "laravel/framework": "^13.17",
         "laravel/horizon": "^5.48",
+        "laravel/sanctum": "^4.3",
         "laravel/tinker": "^3.0",
         "sentry/sentry-laravel": "^4.27"
     },

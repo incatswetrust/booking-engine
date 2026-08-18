@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
@@ -32,7 +33,7 @@ class ApiExceptionRenderer
                 ErrorCode::AuthenticationRequired, 401, 'Authentication is required.', [],
             ],
 
-            $e instanceof AuthorizationException => [
+            $e instanceof AuthorizationException, $e instanceof AccessDeniedHttpException => [
                 ErrorCode::PermissionDenied, 403, 'You are not allowed to perform this action.', [],
             ],
 
