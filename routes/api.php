@@ -13,6 +13,9 @@ Route::prefix('v1')->group(function () {
         Route::get('me', [AuthController::class, 'me']);
 
         Route::apiResource('organizations', OrganizationController::class)
-            ->only(['index', 'store', 'show', 'update']);
+            ->only(['index', 'show', 'update']);
+
+        Route::post('organizations', [OrganizationController::class, 'store'])
+            ->middleware('idempotent');
     });
 });
