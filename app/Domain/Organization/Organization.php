@@ -7,6 +7,7 @@ use App\Domain\Concerns\HasPublicId;
 use App\Domain\Location\Location;
 use App\Domain\Resource\Resource;
 use App\Domain\Resource\ResourceGroup;
+use App\Domain\Service\Service;
 use App\Models\User;
 use Database\Factories\OrganizationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -96,5 +97,13 @@ class Organization extends Model
     public function resources(): HasMany
     {
         return $this->hasMany(Resource::class);
+    }
+
+    /**
+     * @return HasMany<Service, $this>
+     */
+    public function services(): HasMany
+    {
+        return $this->hasMany(Service::class);
     }
 }
