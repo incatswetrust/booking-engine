@@ -4,11 +4,15 @@ namespace App\Domain\Organization;
 
 use App\Domain\Auth\Role;
 use App\Domain\Concerns\HasPublicId;
+use App\Domain\Location\Location;
+use App\Domain\Resource\Resource;
+use App\Domain\Resource\ResourceGroup;
 use App\Models\User;
 use Database\Factories\OrganizationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Organization extends Model
 {
@@ -68,5 +72,29 @@ class Organization extends Model
             ?->role;
 
         return $pivotRole ? Role::from($pivotRole) : null;
+    }
+
+    /**
+     * @return HasMany<Location, $this>
+     */
+    public function locations(): HasMany
+    {
+        return $this->hasMany(Location::class);
+    }
+
+    /**
+     * @return HasMany<ResourceGroup, $this>
+     */
+    public function resourceGroups(): HasMany
+    {
+        return $this->hasMany(ResourceGroup::class);
+    }
+
+    /**
+     * @return HasMany<resource, $this>
+     */
+    public function resources(): HasMany
+    {
+        return $this->hasMany(Resource::class);
     }
 }

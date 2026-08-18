@@ -3,16 +3,6 @@
 use App\Domain\Auth\Role;
 use App\Domain\Organization\Organization;
 use App\Models\User;
-use Tests\TestCase;
-
-function actingAsMember(TestCase $test, Organization $organization, Role $role): User
-{
-    $user = User::factory()->create();
-    $organization->users()->attach($user, ['role' => $role->value]);
-    $test->actingAs($user, 'sanctum');
-
-    return $user;
-}
 
 it('creates an organization and makes the creator its owner', function () {
     $user = User::factory()->create();
