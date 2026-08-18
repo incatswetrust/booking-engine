@@ -2,9 +2,15 @@
 
 namespace App\Providers;
 
+use App\Domain\Location\Location;
 use App\Domain\Organization\Organization;
+use App\Domain\Resource\Resource;
+use App\Domain\Resource\ResourceGroup;
 use App\Models\User;
+use App\Policies\LocationPolicy;
 use App\Policies\OrganizationPolicy;
+use App\Policies\ResourceGroupPolicy;
+use App\Policies\ResourcePolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -26,5 +32,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::before(fn (User $user) => $user->is_platform_admin ? true : null);
 
         Gate::policy(Organization::class, OrganizationPolicy::class);
+        Gate::policy(Location::class, LocationPolicy::class);
+        Gate::policy(ResourceGroup::class, ResourceGroupPolicy::class);
+        Gate::policy(Resource::class, ResourcePolicy::class);
     }
 }
