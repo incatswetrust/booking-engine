@@ -4,7 +4,7 @@
     "type": "project",
     "description": "Multi-provider Booking Engine API",
     "keywords": ["laravel", "booking", "scheduling"],
-    "license": "proprietary",
+    "license": "MIT",
     "require": {
         "php": "^8.4",
         "darkaonline/l5-swagger": "^11.1",
