@@ -20,4 +20,9 @@ class OrganizationPolicy
     {
         return $user->hasPermissionTo(Permission::OrganizationsUpdate, $organization);
     }
+
+    public function viewStatistics(User $user, Organization $organization): bool
+    {
+        return $user->hasPermissionTo(Permission::AnalyticsRead, $organization);
+    }
 }

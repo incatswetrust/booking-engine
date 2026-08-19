@@ -24,12 +24,16 @@ class BookingHold extends Model
         'start_at',
         'end_at',
         'expires_at',
+        'party_size',
+        'resource_capacity',
     ];
 
     protected $casts = [
         'start_at' => AsUtcDateTime::class,
         'end_at' => AsUtcDateTime::class,
         'expires_at' => AsUtcDateTime::class,
+        'party_size' => 'integer',
+        'resource_capacity' => 'integer',
     ];
 
     public static function publicIdPrefix(): string
