@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Application\Services\AvailabilityCache;
 use App\Domain\Resource\Resource;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Schedule\UpdateScheduleRequest;
@@ -15,6 +16,8 @@ use OpenApi\Attributes as OA;
 class ScheduleController extends Controller
 {
     use AuthorizesRequests;
+
+    public function __construct(private readonly AvailabilityCache $availabilityCache) {}
 
     #[OA\Get(
         path: '/api/v1/resources/{resource}/schedule',
@@ -54,6 +57,8 @@ class ScheduleController extends Controller
                 ]);
             }
         });
+
+        $this->availabilityCache->forgetForResource($resource);
 
         return ScheduleRuleResource::collection(
             $resource->scheduleRules()->orderBy('day_of_week')->orderBy('start_time')->get()

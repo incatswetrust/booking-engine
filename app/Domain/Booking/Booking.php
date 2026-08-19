@@ -2,6 +2,7 @@
 
 namespace App\Domain\Booking;
 
+use App\Domain\Concerns\AsUtcDateTime;
 use App\Domain\Concerns\HasPublicId;
 use App\Domain\Location\Location;
 use App\Domain\Organization\Organization;
@@ -36,12 +37,12 @@ class Booking extends Model
     ];
 
     protected $casts = [
-        'start_at' => 'datetime',
-        'end_at' => 'datetime',
+        'start_at' => AsUtcDateTime::class,
+        'end_at' => AsUtcDateTime::class,
         'status' => BookingStatus::class,
         'price' => 'decimal:2',
         'party_size' => 'integer',
-        'cancelled_at' => 'datetime',
+        'cancelled_at' => AsUtcDateTime::class,
     ];
 
     public static function publicIdPrefix(): string

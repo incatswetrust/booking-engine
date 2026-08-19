@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Application\Services\AvailabilityCache;
 use App\Domain\Resource\Resource;
 use App\Domain\Resource\ResourceBlock;
 use App\Http\Controllers\Controller;
@@ -19,6 +20,8 @@ use OpenApi\Attributes as OA;
 class ResourceBlockController extends Controller
 {
     use AuthorizesRequests;
+
+    public function __construct(private readonly AvailabilityCache $availabilityCache) {}
 
     #[OA\Get(
         path: '/api/v1/resource-blocks',
@@ -59,6 +62,8 @@ class ResourceBlockController extends Controller
             'notes' => $request->validated('notes'),
         ]);
 
+        $this->availabilityCache->forgetForResource($resource);
+
         return (new ResourceBlockResource($block))->response()->setStatusCode(201);
     }
 
@@ -74,6 +79,8 @@ class ResourceBlockController extends Controller
         $this->authorize('update', $resourceBlock->resource);
 
         $resourceBlock->delete();
+
+        $this->availabilityCache->forgetForResource($resourceBlock->resource);
 
         return response()->noContent();
     }

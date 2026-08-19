@@ -28,7 +28,10 @@ class BookingService
 {
     private const LOCK_WAIT_SECONDS = 5;
 
-    public function __construct(private readonly BookingStateMachine $stateMachine) {}
+    public function __construct(
+        private readonly BookingStateMachine $stateMachine,
+        private readonly AvailabilityCache $availabilityCache,
+    ) {}
 
     public function create(
         User $actor,
@@ -50,7 +53,7 @@ class BookingService
             $this->assertNoConflictingHold($resource, $startAt, $endAt, $consumedHold);
 
             try {
-                return DB::transaction(function () use (
+                $booking = DB::transaction(function () use (
                     $actor, $customer, $resource, $service, $startAt, $endAt, $partySize, $notes, $consumedHold,
                 ) {
                     $booking = Booking::create([
@@ -88,6 +91,10 @@ class BookingService
             } catch (QueryException $e) {
                 throw $this->isOverlapViolation($e) ? $this->slotUnavailable($resource, $startAt) : $e;
             }
+
+            $this->availabilityCache->forgetForResource($resource);
+
+            return $booking;
         });
     }
 
@@ -114,11 +121,13 @@ class BookingService
                 // every other row in the same statement, so the old slot is
                 // never released before the new one is confirmed free.
                 $booking->forceFill(['start_at' => $newStartAt, 'end_at' => $newEndAt])->save();
-
-                return $booking;
             } catch (QueryException $e) {
                 throw $this->isOverlapViolation($e) ? $this->slotUnavailable($resource, $newStartAt) : $e;
             }
+
+            $this->availabilityCache->forgetForResource($resource);
+
+            return $booking;
         });
     }
 
@@ -128,7 +137,11 @@ class BookingService
             throw new ApiException(ErrorCode::BookingAlreadyCancelled, 'This booking is already cancelled.', 409);
         }
 
-        return $this->stateMachine->transition($booking, BookingStatus::Cancelled, $actor);
+        $booking = $this->stateMachine->transition($booking, BookingStatus::Cancelled, $actor);
+
+        $this->availabilityCache->forgetForResource($booking->resource);
+
+        return $booking;
     }
 
     /**

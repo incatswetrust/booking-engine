@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\AvailabilityController;
 use App\Http\Controllers\Api\V1\BookingController;
 use App\Http\Controllers\Api\V1\BookingHoldController;
 use App\Http\Controllers\Api\V1\LocationController;
@@ -35,6 +36,8 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('resources', ResourceController::class);
 
         Route::apiResource('services', ServiceController::class);
+
+        Route::get('availability', [AvailabilityController::class, 'index']);
 
         Route::get('resources/{resource}/schedule', [ScheduleController::class, 'index']);
         Route::put('resources/{resource}/schedule', [ScheduleController::class, 'update']);

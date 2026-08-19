@@ -7,10 +7,19 @@ use App\Domain\Resource\Resource;
 use App\Domain\Service\Service;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    ->beforeEach(function () {
+        // RefreshDatabase resets auto-increment ids between tests, but the
+        // "array" cache store (used in testing) is NOT reset — a cache key
+        // built from a model id can collide with a previous test's entry
+        // for the "same" id. Availability caching depends on this being
+        // clean.
+        Cache::flush();
+    })
     ->in('Feature');
 
 /**

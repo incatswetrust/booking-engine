@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Application\Services\AvailabilityCache;
 use App\Domain\Resource\Resource;
 use App\Domain\Schedule\ScheduleException;
 use App\Http\Controllers\Controller;
@@ -17,6 +18,8 @@ use OpenApi\Attributes as OA;
 class ScheduleExceptionController extends Controller
 {
     use AuthorizesRequests;
+
+    public function __construct(private readonly AvailabilityCache $availabilityCache) {}
 
     #[OA\Get(
         path: '/api/v1/resources/{resource}/schedule-exceptions',
@@ -45,6 +48,8 @@ class ScheduleExceptionController extends Controller
     {
         $exception = $resource->scheduleExceptions()->create($request->validated());
 
+        $this->availabilityCache->forgetForResource($resource);
+
         return (new ScheduleExceptionResource($exception))->response()->setStatusCode(201);
     }
 
@@ -62,6 +67,8 @@ class ScheduleExceptionController extends Controller
         abort_if($scheduleException->resource_id !== $resource->id, 404);
 
         $scheduleException->delete();
+
+        $this->availabilityCache->forgetForResource($resource);
 
         return response()->noContent();
     }

@@ -28,6 +28,8 @@ class BookingHoldService
 
     private const LOCK_WAIT_SECONDS = 5;
 
+    public function __construct(private readonly AvailabilityCache $availabilityCache) {}
+
     public function create(User $customer, Resource $resource, Service $service, CarbonInterface $startAt): BookingHold
     {
         $endAt = $startAt->copy()->addMinutes($service->duration_minutes);
@@ -38,7 +40,7 @@ class BookingHoldService
         $lock = Cache::lock("booking:resource:{$resource->id}", self::LOCK_WAIT_SECONDS + 2);
 
         try {
-            return $lock->block(self::LOCK_WAIT_SECONDS, function () use ($customer, $resource, $service, $startAt, $endAt) {
+            $hold = $lock->block(self::LOCK_WAIT_SECONDS, function () use ($customer, $resource, $service, $startAt, $endAt) {
                 $this->assertSlotIsFree($resource, $startAt, $endAt);
 
                 try {
@@ -57,6 +59,10 @@ class BookingHoldService
         } catch (LockTimeoutException) {
             throw $this->slotUnavailable($resource, $startAt);
         }
+
+        $this->availabilityCache->forgetForResource($resource);
+
+        return $hold;
     }
 
     private function assertSlotIsFree(Resource $resource, CarbonInterface $startAt, CarbonInterface $endAt): void
