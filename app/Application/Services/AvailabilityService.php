@@ -297,6 +297,42 @@ class AvailabilityService
     }
 
     /**
+     * §70: whether $resource could take a booking for exactly
+     * [$startAt, $endAt) and $partySize right now -- working hours,
+     * resource_blocks, synced external-calendar busy periods (§37), and
+     * capacity (§24), in that order. Used by ResourceAllocationService
+     * to narrow candidates before a strategy picks one; it's a snapshot
+     * read, not a guarantee -- BookingService::create() still re-checks
+     * under its per-resource lock when the booking is actually created,
+     * same as any other create() call regardless of how the resource was
+     * chosen.
+     */
+    public function isBookable(Resource $resource, CarbonInterface $startAt, CarbonInterface $endAt, int $partySize): bool
+    {
+        if (! $this->isWithinWorkingHours($resource, $startAt, $endAt)) {
+            return false;
+        }
+
+        $blocked = $resource->blocks()
+            ->where('starts_at', '<', $endAt)
+            ->where('ends_at', '>', $startAt)
+            ->exists();
+
+        if ($blocked) {
+            return false;
+        }
+
+        $busy = collect($this->calendarBusyPeriods($resource, $startAt, $endAt))
+            ->contains(fn (array $period) => $period[0]->lt($endAt) && $period[1]->gt($startAt));
+
+        if ($busy) {
+            return false;
+        }
+
+        return $resource->bookedCapacityBetween($startAt, $endAt) + $partySize <= $resource->capacity;
+    }
+
+    /**
      * Whether [startAt, endAt) falls entirely inside one of the
      * resource's open working intervals for that day — schedule_rules,
      * or schedule_exceptions if one exists for the date (§17). This is
@@ -345,9 +381,24 @@ class AvailabilityService
             return collect([$onlyResource]);
         }
 
+        return $this->eligibleResourcesForAllocation($service, $location, $partySize);
+    }
+
+    /**
+     * §70: the resources ResourceAllocationService is allowed to choose
+     * from -- same eligibility rule as /availability (offers the
+     * service, right location if one was given, capacity fits the whole
+     * party), ordered by id for a deterministic base order every
+     * strategy (and its tie-breaks) can rely on.
+     *
+     * @return Collection<int, resource>
+     */
+    public function eligibleResourcesForAllocation(Service $service, ?Location $location, int $partySize): Collection
+    {
         return $service->resources()
             ->when($location, fn ($q) => $q->where('resources.location_id', $location->id))
             ->where('resources.capacity', '>=', $partySize)
+            ->orderBy('resources.id')
             ->get();
     }
 

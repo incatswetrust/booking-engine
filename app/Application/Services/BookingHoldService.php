@@ -2,9 +2,7 @@
 
 namespace App\Application\Services;
 
-use App\Domain\Booking\Booking;
 use App\Domain\Booking\BookingHold;
-use App\Domain\Booking\BookingStatus;
 use App\Domain\Resource\Resource;
 use App\Domain\Service\Service;
 use App\Http\Errors\ApiException;
@@ -83,30 +81,17 @@ class BookingHoldService
     }
 
     /**
-     * §24: mirrors BookingService::assertCapacityAvailable() — a new hold
-     * must not push the sum of party_size across every overlapping,
-     * still-active booking and non-expired hold past the resource's
-     * capacity. Deliberately duplicated rather than shared: holds and
-     * bookings are different tables/lifecycles, same reasoning as the
-     * rest of this class's relationship to BookingService.
+     * §24: a new hold must not push Resource::bookedCapacityBetween()
+     * past the resource's capacity once its own party_size is added --
+     * same check as BookingService::assertCapacityAvailable(), sharing
+     * the capacity query itself (Resource::bookedCapacityBetween()) so
+     * it can't drift between the two, while keeping this thin wrapper
+     * (throwing this class's own slotUnavailable()) separate per class,
+     * same as the rest of this class's relationship to BookingService.
      */
     private function assertCapacityAvailable(Resource $resource, CarbonInterface $startAt, CarbonInterface $endAt, int $partySize): void
     {
-        $bookedCapacity = (int) Booking::query()
-            ->where('resource_id', $resource->id)
-            ->whereIn('status', array_map(fn (BookingStatus $s) => $s->value, BookingStatus::active()))
-            ->where('start_at', '<', $endAt)
-            ->where('end_at', '>', $startAt)
-            ->sum('party_size');
-
-        $heldCapacity = (int) BookingHold::query()
-            ->where('resource_id', $resource->id)
-            ->where('expires_at', '>', now())
-            ->where('start_at', '<', $endAt)
-            ->where('end_at', '>', $startAt)
-            ->sum('party_size');
-
-        if ($bookedCapacity + $heldCapacity + $partySize > $resource->capacity) {
+        if ($resource->bookedCapacityBetween($startAt, $endAt) + $partySize > $resource->capacity) {
             throw $this->slotUnavailable($resource, $startAt);
         }
     }

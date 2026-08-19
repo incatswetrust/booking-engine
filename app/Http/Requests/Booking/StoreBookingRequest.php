@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Booking;
 
 use App\Domain\Booking\BookingHold;
+use App\Domain\Location\Location;
 use App\Domain\Resource\Resource;
 use App\Domain\Service\Service;
 use Illuminate\Contracts\Validation\Validator;
@@ -21,7 +22,13 @@ class StoreBookingRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'resource_id' => ['required', 'string', 'exists:resources,public_id'],
+            // §70: resource_id is optional -- omitting it (with no
+            // hold_id either) means "pick a resource for me",
+            // BookingController::store() hands it to
+            // ResourceAllocationService instead of resolving one from
+            // the request directly.
+            'resource_id' => ['sometimes', 'string', 'exists:resources,public_id'],
+            'location_id' => ['sometimes', 'string', 'exists:locations,public_id'],
             'service_id' => ['required', 'string', 'exists:services,public_id'],
             'start_at' => ['required', 'date', 'after_or_equal:now'],
             'party_size' => ['sometimes', 'integer', 'min:1'],
@@ -34,10 +41,33 @@ class StoreBookingRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            $resource = Resource::where('public_id', $this->input('resource_id'))->first();
             $service = Service::where('public_id', $this->input('service_id'))->first();
 
-            if (! $resource || ! $service) {
+            if (! $service) {
+                return;
+            }
+
+            if ($this->filled('hold_id') && ! $this->filled('resource_id')) {
+                $validator->errors()->add('resource_id', 'resource_id is required when hold_id is given.');
+
+                return;
+            }
+
+            if (! $this->filled('resource_id')) {
+                $location = $this->filled('location_id')
+                    ? Location::where('public_id', $this->input('location_id'))->first()
+                    : null;
+
+                if ($this->filled('location_id') && ($location === null || $location->organization_id !== $service->organization_id)) {
+                    $validator->errors()->add('location_id', 'The location does not belong to the same organization as the service.');
+                }
+
+                return;
+            }
+
+            $resource = Resource::where('public_id', $this->input('resource_id'))->first();
+
+            if (! $resource) {
                 return;
             }
 

@@ -2,6 +2,9 @@
 
 namespace App\Domain\Resource;
 
+use App\Domain\Booking\Booking;
+use App\Domain\Booking\BookingHold;
+use App\Domain\Booking\BookingStatus;
 use App\Domain\Calendar\CalendarConnection;
 use App\Domain\Concerns\Auditable;
 use App\Domain\Concerns\HasPublicId;
@@ -10,6 +13,7 @@ use App\Domain\Organization\Organization;
 use App\Domain\Schedule\ScheduleException;
 use App\Domain\Schedule\ScheduleRule;
 use App\Domain\Service\Service;
+use Carbon\CarbonInterface;
 use Database\Factories\ResourceFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -107,6 +111,14 @@ class Resource extends Model
     }
 
     /**
+     * @return HasMany<Booking, $this>
+     */
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
+    }
+
+    /**
      * §36: at most one connection per (resource, provider) is enforced
      * at the DB level; Google is the only implemented provider today,
      * so this resolves to "the" connection in practice.
@@ -116,5 +128,39 @@ class Resource extends Model
     public function calendarConnection(): HasOne
     {
         return $this->hasOne(CalendarConnection::class);
+    }
+
+    /**
+     * §24: sum of party_size across every still-active booking and
+     * non-expired hold overlapping [$startAt, $endAt) on this resource --
+     * the single source of truth for "how much of this resource's
+     * capacity is already spoken for" during that window, shared by
+     * BookingService, BookingHoldService and AvailabilityService so the
+     * capacity math can't drift between them. $excludeBookingId/
+     * $excludeHoldId let a reschedule/conversion exclude its own row.
+     */
+    public function bookedCapacityBetween(
+        CarbonInterface $startAt,
+        CarbonInterface $endAt,
+        ?int $excludeBookingId = null,
+        ?int $excludeHoldId = null,
+    ): int {
+        $bookedCapacity = (int) Booking::query()
+            ->where('resource_id', $this->id)
+            ->whereIn('status', array_map(fn (BookingStatus $s) => $s->value, BookingStatus::active()))
+            ->when($excludeBookingId, fn ($q) => $q->where('id', '!=', $excludeBookingId))
+            ->where('start_at', '<', $endAt)
+            ->where('end_at', '>', $startAt)
+            ->sum('party_size');
+
+        $heldCapacity = (int) BookingHold::query()
+            ->where('resource_id', $this->id)
+            ->where('expires_at', '>', now())
+            ->when($excludeHoldId, fn ($q) => $q->where('id', '!=', $excludeHoldId))
+            ->where('start_at', '<', $endAt)
+            ->where('end_at', '>', $startAt)
+            ->sum('party_size');
+
+        return $bookedCapacity + $heldCapacity;
     }
 }

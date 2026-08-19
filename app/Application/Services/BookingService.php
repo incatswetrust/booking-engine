@@ -326,23 +326,9 @@ class BookingService
         ?int $excludeBookingId = null,
         ?int $excludeHoldId = null,
     ): void {
-        $bookedCapacity = (int) Booking::query()
-            ->where('resource_id', $resource->id)
-            ->whereIn('status', array_map(fn (BookingStatus $s) => $s->value, BookingStatus::active()))
-            ->when($excludeBookingId, fn ($q) => $q->where('id', '!=', $excludeBookingId))
-            ->where('start_at', '<', $endAt)
-            ->where('end_at', '>', $startAt)
-            ->sum('party_size');
+        $booked = $resource->bookedCapacityBetween($startAt, $endAt, $excludeBookingId, $excludeHoldId);
 
-        $heldCapacity = (int) BookingHold::query()
-            ->where('resource_id', $resource->id)
-            ->where('expires_at', '>', now())
-            ->when($excludeHoldId, fn ($q) => $q->where('id', '!=', $excludeHoldId))
-            ->where('start_at', '<', $endAt)
-            ->where('end_at', '>', $startAt)
-            ->sum('party_size');
-
-        if ($bookedCapacity + $heldCapacity + $partySize > $resource->capacity) {
+        if ($booked + $partySize > $resource->capacity) {
             throw $this->slotUnavailable($resource, $startAt);
         }
     }

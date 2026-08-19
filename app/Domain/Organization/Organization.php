@@ -58,6 +58,8 @@ class Organization extends Model
             'late_cancellation_refund_percent' => 50,
             // §40: 24h, 2h, 15min before.
             'reminder_offsets_minutes' => [1440, 120, 15],
+            // §70: used when a booking is created without resource_id.
+            'resource_allocation_strategy' => 'first_available',
         ];
     }
 
