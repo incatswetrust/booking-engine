@@ -59,9 +59,8 @@ class BookingService
             $actor, $customer, $resource, $service, $startAt, $endAt, $partySize, $notes, $consumedHold,
         ) {
             $this->assertWithinWorkingHours($resource, $startAt, $endAt);
-            $this->assertSlotIsFree($resource, $startAt, $endAt);
+            $this->assertCapacityAvailable($resource, $startAt, $endAt, $partySize, excludeHoldId: $consumedHold?->id);
             $this->assertNoBlockingBlock($resource, $startAt, $endAt);
-            $this->assertNoConflictingHold($resource, $startAt, $endAt, $consumedHold);
 
             try {
                 $booking = DB::transaction(function () use (
@@ -80,6 +79,7 @@ class BookingService
                         'currency' => $service->currency,
                         'notes' => $notes,
                         'party_size' => $partySize,
+                        'resource_capacity' => $resource->capacity,
                     ]);
 
                     $booking->statusHistory()->create([
@@ -136,7 +136,7 @@ class BookingService
 
         return $this->withResourceLock($resource, $newStartAt, function () use ($booking, $resource, $newStartAt, $newEndAt) {
             $this->assertWithinWorkingHours($resource, $newStartAt, $newEndAt);
-            $this->assertSlotIsFree($resource, $newStartAt, $newEndAt, excludeBookingId: $booking->id);
+            $this->assertCapacityAvailable($resource, $newStartAt, $newEndAt, $booking->party_size, excludeBookingId: $booking->id);
             $this->assertNoBlockingBlock($resource, $newStartAt, $newEndAt);
 
             $oldStartAt = $booking->start_at;
@@ -306,39 +306,43 @@ class BookingService
         }
     }
 
-    private function assertSlotIsFree(Resource $resource, CarbonInterface $startAt, CarbonInterface $endAt, ?int $excludeBookingId = null): void
-    {
-        $overlaps = Booking::query()
+    /**
+     * §24: a slot is free as long as adding $partySize on top of every
+     * other overlapping, still-active booking's and non-expired hold's
+     * party_size doesn't exceed the resource's capacity — for a
+     * capacity = 1 resource this reduces to the old binary "is anything
+     * else there at all" check, since any single overlapping row already
+     * uses up the entire capacity. Holds and bookings live in separate
+     * tables (separate exclusion constraints, see the capacity migration),
+     * so both are summed here; $excludeHoldId is the hold this very
+     * booking is converting, $excludeBookingId is this booking's own
+     * current row on a reschedule.
+     */
+    private function assertCapacityAvailable(
+        Resource $resource,
+        CarbonInterface $startAt,
+        CarbonInterface $endAt,
+        int $partySize,
+        ?int $excludeBookingId = null,
+        ?int $excludeHoldId = null,
+    ): void {
+        $bookedCapacity = (int) Booking::query()
             ->where('resource_id', $resource->id)
             ->whereIn('status', array_map(fn (BookingStatus $s) => $s->value, BookingStatus::active()))
             ->when($excludeBookingId, fn ($q) => $q->where('id', '!=', $excludeBookingId))
             ->where('start_at', '<', $endAt)
             ->where('end_at', '>', $startAt)
-            ->exists();
+            ->sum('party_size');
 
-        if ($overlaps) {
-            throw $this->slotUnavailable($resource, $startAt);
-        }
-    }
-
-    /**
-     * A booking must not be created over a slot someone else is actively
-     * holding (§21) — holds and bookings live in separate tables with
-     * separate exclusion constraints, so this is the only thing that
-     * connects them. $consumedHold is excluded since that's the hold this
-     * very booking is converting.
-     */
-    private function assertNoConflictingHold(Resource $resource, CarbonInterface $startAt, CarbonInterface $endAt, ?BookingHold $consumedHold): void
-    {
-        $conflicts = BookingHold::query()
+        $heldCapacity = (int) BookingHold::query()
             ->where('resource_id', $resource->id)
             ->where('expires_at', '>', now())
-            ->when($consumedHold, fn ($q) => $q->where('id', '!=', $consumedHold->id))
+            ->when($excludeHoldId, fn ($q) => $q->where('id', '!=', $excludeHoldId))
             ->where('start_at', '<', $endAt)
             ->where('end_at', '>', $startAt)
-            ->exists();
+            ->sum('party_size');
 
-        if ($conflicts) {
+        if ($bookedCapacity + $heldCapacity + $partySize > $resource->capacity) {
             throw $this->slotUnavailable($resource, $startAt);
         }
     }

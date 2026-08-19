@@ -44,6 +44,7 @@ class BookingHoldController extends Controller
             $resource,
             $service,
             CarbonImmutable::parse($request->validated('start_at')),
+            (int) $request->validated('party_size', 1),
         );
 
         return (new BookingHoldResource($hold))->response()->setStatusCode(201);

@@ -135,13 +135,19 @@ class BookingController extends Controller
             ? BookingHold::where('public_id', $request->validated('hold_id'))->first()
             : null;
 
+        // A hold already captured the intended party_size (validated to
+        // match, if both were given) -- defaulting to it here means a
+        // client that only ever sent party_size once, at hold time,
+        // still gets a booking with the right party_size.
+        $partySize = (int) $request->validated('party_size', $hold?->party_size ?? 1);
+
         $booking = $this->bookings->create(
             $actor,
             $customer,
             $resource,
             $service,
             CarbonImmutable::parse($request->validated('start_at')),
-            (int) $request->validated('party_size', 1),
+            $partySize,
             $request->validated('notes'),
             $hold,
         );

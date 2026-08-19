@@ -2,7 +2,9 @@
 
 namespace App\Application\Services;
 
+use App\Domain\Booking\Booking;
 use App\Domain\Booking\BookingHold;
+use App\Domain\Booking\BookingStatus;
 use App\Domain\Resource\Resource;
 use App\Domain\Service\Service;
 use App\Http\Errors\ApiException;
@@ -17,10 +19,12 @@ use Illuminate\Support\Facades\Cache;
  * Creates booking holds under a per-resource Redis lock (§21, §22).
  *
  * The lock serializes concurrent hold attempts for the same resource so
- * only one wins the application-level overlap check. PostgreSQL's
- * booking_holds_no_overlap exclusion constraint (see the booking_holds
- * migration) is the real backstop under true concurrency — the lock
- * reduces contention/wasted work, it isn't the source of truth.
+ * only one wins the application-level capacity check. For a capacity = 1
+ * resource, PostgreSQL's booking_holds_no_overlap exclusion constraint
+ * (see the capacity-support migration) is still the real backstop under
+ * true concurrency; for capacity > 1 it can't express a numeric
+ * threshold, so this lock + the SUM(party_size) check below is the sole
+ * guard (§24) — see the migration's docblock for the full reasoning.
  */
 class BookingHoldService
 {
@@ -33,7 +37,7 @@ class BookingHoldService
         private readonly AvailabilityService $availability,
     ) {}
 
-    public function create(User $customer, Resource $resource, Service $service, CarbonInterface $startAt): BookingHold
+    public function create(User $customer, Resource $resource, Service $service, CarbonInterface $startAt, int $partySize = 1): BookingHold
     {
         $endAt = $startAt->copy()->addMinutes($service->duration_minutes);
 
@@ -43,9 +47,9 @@ class BookingHoldService
         $lock = Cache::lock("booking:resource:{$resource->id}", self::LOCK_WAIT_SECONDS + 2);
 
         try {
-            $hold = $lock->block(self::LOCK_WAIT_SECONDS, function () use ($customer, $resource, $service, $startAt, $endAt) {
+            $hold = $lock->block(self::LOCK_WAIT_SECONDS, function () use ($customer, $resource, $service, $startAt, $endAt, $partySize) {
                 $this->assertWithinWorkingHours($resource, $startAt, $endAt);
-                $this->assertSlotIsFree($resource, $startAt, $endAt);
+                $this->assertCapacityAvailable($resource, $startAt, $endAt, $partySize);
 
                 try {
                     return BookingHold::create([
@@ -55,6 +59,8 @@ class BookingHoldService
                         'start_at' => $startAt,
                         'end_at' => $endAt,
                         'expires_at' => now()->addMinutes(self::HOLD_MINUTES),
+                        'party_size' => $partySize,
+                        'resource_capacity' => $resource->capacity,
                     ]);
                 } catch (QueryException $e) {
                     throw $this->isOverlapViolation($e) ? $this->slotUnavailable($resource, $startAt) : $e;
@@ -76,16 +82,31 @@ class BookingHoldService
         }
     }
 
-    private function assertSlotIsFree(Resource $resource, CarbonInterface $startAt, CarbonInterface $endAt): void
+    /**
+     * §24: mirrors BookingService::assertCapacityAvailable() — a new hold
+     * must not push the sum of party_size across every overlapping,
+     * still-active booking and non-expired hold past the resource's
+     * capacity. Deliberately duplicated rather than shared: holds and
+     * bookings are different tables/lifecycles, same reasoning as the
+     * rest of this class's relationship to BookingService.
+     */
+    private function assertCapacityAvailable(Resource $resource, CarbonInterface $startAt, CarbonInterface $endAt, int $partySize): void
     {
-        $overlaps = BookingHold::query()
+        $bookedCapacity = (int) Booking::query()
+            ->where('resource_id', $resource->id)
+            ->whereIn('status', array_map(fn (BookingStatus $s) => $s->value, BookingStatus::active()))
+            ->where('start_at', '<', $endAt)
+            ->where('end_at', '>', $startAt)
+            ->sum('party_size');
+
+        $heldCapacity = (int) BookingHold::query()
             ->where('resource_id', $resource->id)
             ->where('expires_at', '>', now())
             ->where('start_at', '<', $endAt)
             ->where('end_at', '>', $startAt)
-            ->exists();
+            ->sum('party_size');
 
-        if ($overlaps) {
+        if ($bookedCapacity + $heldCapacity + $partySize > $resource->capacity) {
             throw $this->slotUnavailable($resource, $startAt);
         }
     }

@@ -51,6 +51,14 @@ class StoreBookingRequest extends FormRequest
                 $validator->errors()->add('service_id', 'This service is not offered on the given resource.');
             }
 
+            // §24: party_size can never exceed the resource's total
+            // capacity, regardless of what's currently booked -- that's
+            // a slot-availability question, handled separately (409, not
+            // 422) by BookingService::assertCapacityAvailable().
+            if ($this->filled('party_size') && (int) $this->input('party_size') > $resource->capacity) {
+                $validator->errors()->add('party_size', "This resource's capacity is {$resource->capacity}.");
+            }
+
             if ($this->filled('hold_id')) {
                 $hold = BookingHold::where('public_id', $this->input('hold_id'))->first();
 
@@ -60,6 +68,10 @@ class StoreBookingRequest extends FormRequest
 
                 if ($hold && $hold->isExpired()) {
                     $validator->errors()->add('hold_id', 'This hold has expired.');
+                }
+
+                if ($hold && $this->filled('party_size') && (int) $this->input('party_size') !== $hold->party_size) {
+                    $validator->errors()->add('party_size', 'party_size must match the party_size the hold was created with.');
                 }
             }
         });

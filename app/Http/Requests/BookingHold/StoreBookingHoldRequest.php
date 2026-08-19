@@ -23,6 +23,7 @@ class StoreBookingHoldRequest extends FormRequest
             'resource_id' => ['required', 'string', 'exists:resources,public_id'],
             'service_id' => ['required', 'string', 'exists:services,public_id'],
             'start_at' => ['required', 'date', 'after_or_equal:now'],
+            'party_size' => ['sometimes', 'integer', 'min:1'],
         ];
     }
 
@@ -44,6 +45,14 @@ class StoreBookingHoldRequest extends FormRequest
 
             if (! $service->resources()->where('resources.id', $resource->id)->exists()) {
                 $validator->errors()->add('service_id', 'This service is not offered on the given resource.');
+            }
+
+            // §24: party_size can never exceed the resource's total
+            // capacity, regardless of what's currently booked -- that's
+            // a slot-availability question, handled separately (409, not
+            // 422) by BookingHoldService::assertCapacityAvailable().
+            if ($this->filled('party_size') && (int) $this->input('party_size') > $resource->capacity) {
+                $validator->errors()->add('party_size', "This resource's capacity is {$resource->capacity}.");
             }
         });
     }

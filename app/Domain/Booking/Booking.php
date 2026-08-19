@@ -34,6 +34,7 @@ class Booking extends Model
         'currency',
         'notes',
         'party_size',
+        'resource_capacity',
         'cancelled_at',
         'external_calendar_event_id',
     ];
@@ -44,6 +45,7 @@ class Booking extends Model
         'status' => BookingStatus::class,
         'price' => 'decimal:2',
         'party_size' => 'integer',
+        'resource_capacity' => 'integer',
         'cancelled_at' => AsUtcDateTime::class,
     ];
 
