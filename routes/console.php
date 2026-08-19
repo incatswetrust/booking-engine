@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('idempotency:cleanup')->hourly();
 Schedule::command('bookings:expire-holds')->everyMinute();
+Schedule::command('bookings:expire-pending')->everyMinute();
