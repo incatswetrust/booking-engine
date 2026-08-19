@@ -3,6 +3,7 @@
 namespace App\Domain\Resource;
 
 use App\Domain\Concerns\AsUtcDateTime;
+use App\Domain\Concerns\Auditable;
 use App\Domain\Concerns\HasPublicId;
 use Database\Factories\ResourceBlockFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ResourceBlock extends Model
 {
     /** @use HasFactory<ResourceBlockFactory> */
-    use HasFactory, HasPublicId;
+    use Auditable, HasFactory, HasPublicId;
 
     protected $fillable = [
         'resource_id',

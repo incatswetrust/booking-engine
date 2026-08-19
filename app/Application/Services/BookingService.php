@@ -31,6 +31,7 @@ class BookingService
     public function __construct(
         private readonly BookingStateMachine $stateMachine,
         private readonly AvailabilityCache $availabilityCache,
+        private readonly AuditLogger $auditLogger,
     ) {}
 
     public function create(
@@ -77,6 +78,8 @@ class BookingService
                         'changed_by_user_id' => $actor->id,
                     ]);
 
+                    $this->auditLogger->log('booking.created', $booking, null, $booking->toArray());
+
                     // MVP ships without Stripe (§66): every booking is
                     // effectively "no payment required" for now, so it
                     // confirms immediately instead of parking in
@@ -115,6 +118,9 @@ class BookingService
             $this->assertSlotIsFree($resource, $newStartAt, $newEndAt, excludeBookingId: $booking->id);
             $this->assertNoBlockingBlock($resource, $newStartAt, $newEndAt);
 
+            $oldStartAt = $booking->start_at;
+            $oldEndAt = $booking->end_at;
+
             try {
                 // A single UPDATE on the existing row is what makes this
                 // atomic (§27): the exclusion constraint is checked against
@@ -124,6 +130,13 @@ class BookingService
             } catch (QueryException $e) {
                 throw $this->isOverlapViolation($e) ? $this->slotUnavailable($resource, $newStartAt) : $e;
             }
+
+            $this->auditLogger->log(
+                'booking.rescheduled',
+                $booking,
+                ['start_at' => $oldStartAt->toIso8601String(), 'end_at' => $oldEndAt->toIso8601String()],
+                ['start_at' => $newStartAt->toIso8601String(), 'end_at' => $newEndAt->toIso8601String()],
+            );
 
             $this->availabilityCache->forgetForResource($resource);
 

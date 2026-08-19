@@ -2,6 +2,7 @@
 
 namespace App\Domain\Booking;
 
+use App\Application\Services\AuditLogger;
 use App\Http\Errors\ApiException;
 use App\Http\Errors\ErrorCode;
 use App\Models\User;
@@ -10,10 +11,14 @@ use App\Models\User;
  * Explicit allowed transitions for Booking::status (§20). No caller is
  * allowed to set an arbitrary status — every change goes through
  * transition(), which validates the move and records it in
- * booking_status_history.
+ * booking_status_history, and to audit_logs as "booking.<status>" (§49).
  */
 class BookingStateMachine
 {
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+    ) {}
+
     /**
      * @var array<string, array<int, string>>
      */
@@ -60,6 +65,13 @@ class BookingStateMachine
             'to_status' => $to->value,
             'changed_by_user_id' => $actor?->id,
         ]);
+
+        $this->auditLogger->log(
+            "booking.{$to->value}",
+            $booking,
+            ['status' => $from->value],
+            ['status' => $to->value],
+        );
 
         return $booking;
     }
