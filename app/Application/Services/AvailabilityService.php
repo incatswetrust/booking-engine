@@ -237,6 +237,46 @@ class AvailabilityService
     }
 
     /**
+     * Whether [startAt, endAt) falls entirely inside one of the
+     * resource's open working intervals for that day — schedule_rules,
+     * or schedule_exceptions if one exists for the date (§17). This is
+     * the check BookingService::create()/reschedule() were missing: a
+     * booking could previously be created outside business hours
+     * entirely by calling /bookings directly instead of picking a slot
+     * from /availability first. Deliberately independent of existing
+     * bookings/holds/blocks — those are checked separately.
+     */
+    public function isWithinWorkingHours(Resource $resource, CarbonInterface $startAt, CarbonInterface $endAt): bool
+    {
+        $tz = new DateTimeZone($resource->location?->timezone ?? $resource->organization->timezone);
+
+        $localStart = CarbonImmutable::instance($startAt)->setTimezone($tz);
+        $localEnd = CarbonImmutable::instance($endAt)->setTimezone($tz);
+        $dateKey = $localStart->toDateString();
+
+        $exception = $resource->scheduleExceptions()->whereDate('date', $dateKey)->first();
+
+        if ($exception?->type === ScheduleExceptionType::Closed) {
+            return false;
+        }
+
+        $intervals = $exception?->type === ScheduleExceptionType::CustomHours
+            ? [[substr((string) $exception->start_time, 0, 5), substr((string) $exception->end_time, 0, 5)]]
+            : $this->intervalsFromRules($resource->scheduleRules()->get()->groupBy('day_of_week'), $localStart);
+
+        foreach ($intervals as [$startTime, $endTime]) {
+            $intervalStart = CarbonImmutable::parse("{$dateKey} {$startTime}", $tz);
+            $intervalEnd = CarbonImmutable::parse("{$dateKey} {$endTime}", $tz);
+
+            if ($localStart->gte($intervalStart) && $localEnd->lte($intervalEnd)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @return Collection<int, resource>
      */
     private function eligibleResources(Service $service, ?Location $location, ?Resource $onlyResource, int $partySize): Collection

@@ -4,6 +4,7 @@ use App\Domain\Booking\BookingHold;
 use App\Domain\Location\Location;
 use App\Domain\Organization\Organization;
 use App\Domain\Resource\Resource;
+use App\Domain\Schedule\ScheduleRule;
 use App\Domain\Service\Service;
 use App\Models\User;
 
@@ -49,9 +50,12 @@ it('rejects a hold that overlaps an existing active hold on the same resource', 
 it('allows holding a different resource at the exact same time', function () {
     $organization = Organization::factory()->create();
     [$resourceA, $serviceA] = makeBookableResource($organization);
-    $location = Location::factory()->for($organization)->create();
+    $location = Location::factory()->for($organization)->create(['timezone' => 'UTC']);
     $resourceB = Resource::factory()->for($organization)->for($location)->create();
     $serviceA->resources()->attach($resourceB);
+    foreach (range(0, 6) as $dayOfWeek) {
+        ScheduleRule::factory()->for($resourceB)->create(['day_of_week' => $dayOfWeek, 'start_time' => '00:00', 'end_time' => '23:59']);
+    }
 
     $start = now()->addDay()->setTime(10, 0);
 

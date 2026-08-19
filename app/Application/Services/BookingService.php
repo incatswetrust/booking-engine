@@ -35,6 +35,7 @@ class BookingService
         private readonly AvailabilityCache $availabilityCache,
         private readonly AuditLogger $auditLogger,
         private readonly OutboxWriter $outboxWriter,
+        private readonly AvailabilityService $availability,
     ) {}
 
     public function create(
@@ -52,6 +53,7 @@ class BookingService
         return $this->withResourceLock($resource, $startAt, function () use (
             $actor, $customer, $resource, $service, $startAt, $endAt, $partySize, $notes, $consumedHold,
         ) {
+            $this->assertWithinWorkingHours($resource, $startAt, $endAt);
             $this->assertSlotIsFree($resource, $startAt, $endAt);
             $this->assertNoBlockingBlock($resource, $startAt, $endAt);
             $this->assertNoConflictingHold($resource, $startAt, $endAt, $consumedHold);
@@ -119,6 +121,7 @@ class BookingService
         $newEndAt = $newStartAt->copy()->addMinutes($booking->service->duration_minutes);
 
         return $this->withResourceLock($resource, $newStartAt, function () use ($booking, $resource, $newStartAt, $newEndAt) {
+            $this->assertWithinWorkingHours($resource, $newStartAt, $newEndAt);
             $this->assertSlotIsFree($resource, $newStartAt, $newEndAt, excludeBookingId: $booking->id);
             $this->assertNoBlockingBlock($resource, $newStartAt, $newEndAt);
 
@@ -215,6 +218,20 @@ class BookingService
         try {
             return $lock->block(self::LOCK_WAIT_SECONDS, $callback);
         } catch (LockTimeoutException) {
+            throw $this->slotUnavailable($resource, $startAt);
+        }
+    }
+
+    /**
+     * A booking must fall entirely within the resource's working hours
+     * (§17) — schedule_rules, or a schedule_exception for that date.
+     * Previously nothing enforced this outside of /availability itself,
+     * so a booking could be created directly on a closed day or outside
+     * business hours.
+     */
+    private function assertWithinWorkingHours(Resource $resource, CarbonInterface $startAt, CarbonInterface $endAt): void
+    {
+        if (! $this->availability->isWithinWorkingHours($resource, $startAt, $endAt)) {
             throw $this->slotUnavailable($resource, $startAt);
         }
     }
