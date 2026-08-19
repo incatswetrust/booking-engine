@@ -130,7 +130,7 @@ docker compose up --build</pre>
                 ],
             ],
             [
-                'title' => 'Google Calendar (§36 integration)',
+                'title' => 'Google Calendar integration',
                 'required' => false,
                 'rows' => [
                     ['GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET', '—', 'OAuth2 client from console.cloud.google.com/apis/credentials with the Calendar API enabled.'],

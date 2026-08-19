@@ -7,7 +7,7 @@ return [
             'intro' => '### Authentication methods
 - **None (public)**: no header required.
 - **Sanctum**: `Authorization: Bearer <token>` — a personal access token from `/auth/register` or `/auth/login`.
-- **Sanctum or API key**: `Authorization: Bearer <token>` (Sanctum) OR `Authorization: Bearer booking_live_...` (API key, §45). API-key requests are additionally scoped via `api-key-scope` middleware (see each endpoint).
+- **Sanctum or API key**: `Authorization: Bearer <token>` (Sanctum) OR `Authorization: Bearer booking_live_...` (API key). API-key requests are additionally scoped via `api-key-scope` middleware (see each endpoint).
 - **Stripe-Signature**: verified via the `Stripe-Signature` header, not a bearer token.
 
 ### Common error codes (any endpoint can return these)
@@ -20,13 +20,13 @@ return [
 | 429 | `RATE_LIMIT_EXCEEDED` | Throttled — `Retry-After` header present |
 | 500 | `INTERNAL_ERROR` | Unexpected server error |
 
-### Rate limiting (§46)
+### Rate limiting
 Named limiter `api`, 100 req/min, checked on **all** dimensions simultaneously (whichever is hit first throttles): per IP, per authenticated user, per API key, per API key\'s organization. The `public` limiter (unauthenticated `/public/*` routes) is much stricter: **20 req/min per IP**, layered on top of the `api` limiter.
 
-### Idempotency (§26)
+### Idempotency
 Endpoints marked **Idempotent** below accept an `Idempotency-Key` header (any string). A repeated request with the same key (scoped per-user) and an identical body replays the original response (adds `Idempotency-Replayed: true` header) instead of re-executing. The same key with a *different* body returns `409 IDEMPOTENCY_CONFLICT`. Keys expire after 24h.
 
-### Public IDs (§48)
+### Public IDs
 Every resource is identified by a ULID-based `public_id` string with a type prefix, e.g. `bkg_01k2...` (booking), `res_...` (resource), `srv_...` (service), `org_...` (organization), `usr_...` (user), `loc_...` (location), `hld_...` (booking hold), `pay_...` (payment), `whe_...` (webhook endpoint), `wbd_...` (webhook delivery), `key_...` (API key), `cal_...` (calendar connection). Never use internal numeric IDs in requests.',
             'endpoints' => [
             ],
@@ -338,7 +338,7 @@ Response: `{"status": "ok"|"unavailable", "checks": {...}}`. 200 or 503.',
                     'idempotent' => false,
                     'slug' => 'get-services',
                     'body' => 'Auth: Sanctum. **Query:** `organization_id` (required).
-**Response 200:** array of `ServiceResource`: `id`, `organization_id`, `name`, `description`, `duration_minutes`, `buffer_before_minutes`, `buffer_after_minutes`, `price` (float), `currency`, `pricing_rules` (object|null, §71 — see below), `cancellation_policy` (object|null, §28 — see below), `status`, `payment_mode` (`none`|`full`|`deposit`|`pay_after`), `deposit_amount` (float|null), `resource_ids` (array, present only when resources are eager-loaded — always true from these endpoints), `created_at`, `updated_at`.',
+**Response 200:** array of `ServiceResource`: `id`, `organization_id`, `name`, `description`, `duration_minutes`, `buffer_before_minutes`, `buffer_after_minutes`, `price` (float), `currency`, `pricing_rules` (object|null — see below), `cancellation_policy` (object|null — see below), `status`, `payment_mode` (`none`|`full`|`deposit`|`pay_after`), `deposit_amount` (float|null), `resource_ids` (array, present only when resources are eager-loaded — always true from these endpoints), `created_at`, `updated_at`.',
                 ],
                 1 => [
                     'method' => 'POST',
@@ -363,7 +363,7 @@ Response: `{"status": "ok"|"unavailable", "checks": {...}}`. 200 or 503.',
 | payment_mode | string | no | `none`\\|`full`\\|`deposit`\\|`pay_after`, default `none` |
 | deposit_amount | numeric | conditional | required if `payment_mode=deposit`, ≥0.01, must not exceed `price` |
 
-**Pricing rules shape (§71)** — all keys optional, price computed once at booking creation and never changes after:
+**Pricing rules shape** — all keys optional, price computed once at booking creation and never changes after:
 ```
 {
   "weekend_price": 55.00,                                    // overrides base price on Sat/Sun (resource\'s local timezone)
@@ -371,7 +371,7 @@ Response: `{"status": "ok"|"unavailable", "checks": {...}}`. 200 or 503.',
   "occupancy_surcharge": {"threshold_percent": 80, "multiplier": 1.15}  // applies if the resource\'s booked capacity for that slot exceeds threshold_percent (only meaningful for capacity > 1 resources)
 }
 ```
-**Cancellation policy shape (§28)** — both keys optional, independently override the organization\'s `cancellation_notice_minutes`/`late_cancellation_refund_percent`:
+**Cancellation policy shape** — both keys optional, independently override the organization\'s `cancellation_notice_minutes`/`late_cancellation_refund_percent`:
 ```
 {"notice_minutes": 2880, "refund_percent": 25}
 ```
@@ -482,7 +482,7 @@ Response: `{"status": "ok"|"unavailable", "checks": {...}}`. 200 or 503.',
         ],
         10 => [
             'name' => 'Calendar Connections',
-            'intro' => 'Google Calendar sync per resource (§36-38). Only Google is implemented (Outlook is out of scope by product decision).',
+            'intro' => 'Google Calendar sync per resource. Only Google is implemented (Outlook is out of scope by product decision).',
             'endpoints' => [
                 0 => [
                     'method' => 'POST',
@@ -528,7 +528,7 @@ Response: `{"status": "ok"|"unavailable", "checks": {...}}`. 200 or 503.',
                     'path' => '/api/v1/availability',
                     'idempotent' => false,
                     'slug' => 'get-availability',
-                    'body' => 'Auth: Sanctum, or API key with `availability:read` scope. Computes bookable slots (§17) honoring schedule, exceptions, resource blocks, existing bookings/holds, capacity (§24), synced calendar busy periods (§37), min-notice and max-horizon organization settings.
+                    'body' => 'Auth: Sanctum, or API key with `availability:read` scope. Computes bookable slots honoring schedule, exceptions, resource blocks, existing bookings/holds, capacity, synced calendar busy periods, min-notice and max-horizon organization settings.
 **Query params:**
 | param | type | required | notes |
 |---|---|---|---|
@@ -553,7 +553,7 @@ Response: `{"status": "ok"|"unavailable", "checks": {...}}`. 200 or 503.',
         ],
         12 => [
             'name' => 'Booking Holds',
-            'intro' => 'Temporary (10 min) slot reservation before committing to a booking (§21).',
+            'intro' => 'Temporary (10 min) slot reservation before committing to a booking.',
             'endpoints' => [
                 0 => [
                     'method' => 'POST',
@@ -585,7 +585,7 @@ Response: `{"status": "ok"|"unavailable", "checks": {...}}`. 200 or 503.',
                     'slug' => 'get-bookings',
                     'body' => 'Auth: Sanctum, or API key `bookings:read` scope. Lists the caller\'s own bookings plus any organization they can read bookings for (platform admins see everything).
 **Query filters (all optional):** `status`, `resource_id`, `service_id`, `customer_id`, `location_id`, `date_from`, `date_to` (all compare against `start_at`), `sort` (`start_at`|`created_at`, prefix with `-` for descending; default `-start_at`).
-**Response 200:** cursor-paginated (20/page) array of `BookingResource`: `id`, `organization_id`, `customer_id`, `service_id`, `resource_id`, `location_id`, `start_at`, `end_at`, `status` (`pending`|`held`|`awaiting_payment`|`confirmed`|`checked_in`|`completed`|`cancelled`|`no_show`|`expired`), `price` (float, fixed at creation per §71), `currency`, `notes`, `party_size`, `cancelled_at`, `created_at`, `updated_at`.',
+**Response 200:** cursor-paginated (20/page) array of `BookingResource`: `id`, `organization_id`, `customer_id`, `service_id`, `resource_id`, `location_id`, `start_at`, `end_at`, `status` (`pending`|`held`|`awaiting_payment`|`confirmed`|`checked_in`|`completed`|`cancelled`|`no_show`|`expired`), `price` (float, fixed at creation), `currency`, `notes`, `party_size`, `cancelled_at`, `created_at`, `updated_at`.',
                 ],
                 1 => [
                     'method' => 'POST',
@@ -597,7 +597,7 @@ Response: `{"status": "ok"|"unavailable", "checks": {...}}`. 200 or 503.',
 | field | type | required | notes |
 |---|---|---|---|
 | service_id | string | yes | |
-| resource_id | string | no | **omit to auto-allocate** (§70) — picked via the organization\'s `resource_allocation_strategy` setting among resources offering the service (optionally narrowed by `location_id`) that are actually free for this slot/party_size |
+| resource_id | string | no | **omit to auto-allocate** — picked via the organization\'s `resource_allocation_strategy` setting among resources offering the service (optionally narrowed by `location_id`) that are actually free for this slot/party_size |
 | location_id | string | no | narrows auto-allocation candidates; ignored if `resource_id` given |
 | start_at | date | yes | ≥ now |
 | party_size | int | no | ≥1; defaults to the hold\'s party_size if `hold_id` given, else 1; must not exceed the resource\'s capacity; must match the hold\'s party_size if both given |
@@ -606,7 +606,7 @@ Response: `{"status": "ok"|"unavailable", "checks": {...}}`. 200 or 503.',
 | hold_id | string | no | consume a previously-created hold (frees its reservation); requires `resource_id` to also be given |
 
 **Response 201:** `BookingResource`.
-**Errors:** 409 `BOOKING_SLOT_UNAVAILABLE` (with `details.alternatives` — up to 3 nearby free same-day slots, §73 — for genuine capacity/overlap conflicts) if the slot isn\'t free, or auto-allocation found no eligible resource at all; 422 for validation issues (party_size too big, hold/resource/service mismatch, hold expired); 403 if `customer_id` given without permission.',
+**Errors:** 409 `BOOKING_SLOT_UNAVAILABLE` (with `details.alternatives` — up to 3 nearby free same-day slots — for genuine capacity/overlap conflicts) if the slot isn\'t free, or auto-allocation found no eligible resource at all; 422 for validation issues (party_size too big, hold/resource/service mismatch, hold expired); 403 if `customer_id` given without permission.',
                 ],
                 2 => [
                     'method' => 'GET',
@@ -645,7 +645,7 @@ Response: `{"status": "ok"|"unavailable", "checks": {...}}`. 200 or 503.',
                     'path' => '/api/v1/bookings/{booking}/cancel',
                     'idempotent' => false,
                     'slug' => 'post-bookings-booking-cancel',
-                    'body' => 'Auth: Sanctum, or API key `bookings:write` scope; own booking or `bookings.cancel` permission. Evaluates the cancellation policy (§28) and auto-refunds any paid payment accordingly.
+                    'body' => 'Auth: Sanctum, or API key `bookings:write` scope; own booking or `bookings.cancel` permission. Evaluates the cancellation policy and auto-refunds any paid payment accordingly.
 **Response 200:** `BookingResource` + `meta.free_cancellation` (bool — whether this cancellation fell inside the free window).
 **Errors:** 409 `BOOKING_ALREADY_CANCELLED` if already cancelled.',
                 ],
@@ -654,17 +654,17 @@ Response: `{"status": "ok"|"unavailable", "checks": {...}}`. 200 or 503.',
                     'path' => '/api/v1/bookings/{booking}/reschedule',
                     'idempotent' => false,
                     'slug' => 'post-bookings-booking-reschedule',
-                    'body' => 'Auth: Sanctum, or API key `bookings:write` scope; own booking or `bookings.update` permission. Atomically moves the booking to a new time (§27) — price is **not** recalculated even if the new slot would price differently (§71: price is fixed once, at creation).
+                    'body' => 'Auth: Sanctum, or API key `bookings:write` scope; own booking or `bookings.update` permission. Atomically moves the booking to a new time — price is **not** recalculated even if the new slot would price differently (price is fixed once, at creation).
 **Body:** `start_at` (required, date ≥ now).
 **Response 200:** `BookingResource`.
-**Errors:** 409 `BOOKING_SLOT_UNAVAILABLE` (with `alternatives`, §73) if the new slot isn\'t free; 422 `BOOKING_CANNOT_BE_RESCHEDULED` if the booking\'s status doesn\'t allow it (only `pending`/`held`/`awaiting_payment`/`confirmed` can be rescheduled).',
+**Errors:** 409 `BOOKING_SLOT_UNAVAILABLE` (with `alternatives`) if the new slot isn\'t free; 422 `BOOKING_CANNOT_BE_RESCHEDULED` if the booking\'s status doesn\'t allow it (only `pending`/`held`/`awaiting_payment`/`confirmed` can be rescheduled).',
                 ],
                 8 => [
                     'method' => 'POST',
                     'path' => '/api/v1/bookings/{booking}/payment',
                     'idempotent' => false,
                     'slug' => 'post-bookings-booking-payment',
-                    'body' => 'Auth: Sanctum, or API key `bookings:write` scope. Starts a Stripe PaymentIntent for a booking whose service requires payment (§30-31) — Idempotent via the `idempotent` middleware.
+                    'body' => 'Auth: Sanctum, or API key `bookings:write` scope. Starts a Stripe PaymentIntent for a booking whose service requires payment — Idempotent via the `idempotent` middleware.
 **Response 201:** `PaymentResource` (`id`, `booking_id`, `provider`, `amount`, `amount_refunded`, `currency`, `status`, `failure_reason`, `paid_at`, `created_at`, `updated_at`) + `client_secret` (Stripe client secret to complete payment client-side).
 **Errors:** 422 if the booking doesn\'t currently need payment, or already has an active PaymentIntent.',
                 ],
@@ -679,7 +679,7 @@ Response: `{"status": "ok"|"unavailable", "checks": {...}}`. 200 or 503.',
                     'path' => '/api/v1/recurring-bookings',
                     'idempotent' => true,
                     'slug' => 'post-recurring-bookings',
-                    'body' => 'Auth: Sanctum, or API key `bookings:write` scope (same group as `/bookings`). Creates a weekly-recurring series (§72), e.g. "every Tuesday 18:00, 8 weeks" — each occurrence goes through the exact same path as a single `POST /bookings` (capacity, pricing, calendar sync, webhooks all fire normally). **Requires an explicit `resource_id`** — auto-allocation is deliberately not available here (it could pick a different resource per occurrence, defeating the point of a recurring series).
+                    'body' => 'Auth: Sanctum, or API key `bookings:write` scope (same group as `/bookings`). Creates a weekly-recurring series, e.g. "every Tuesday 18:00, 8 weeks" — each occurrence goes through the exact same path as a single `POST /bookings` (capacity, pricing, calendar sync, webhooks all fire normally). **Requires an explicit `resource_id`** — auto-allocation is deliberately not available here (it could pick a different resource per occurrence, defeating the point of a recurring series).
 **Body:**
 | field | type | required | notes |
 |---|---|---|---|
@@ -754,7 +754,7 @@ Response: `{"status": "ok"|"unavailable", "checks": {...}}`. 200 or 503.',
                     'path' => '/api/v1/payments/{payment}/refund',
                     'idempotent' => true,
                     'slug' => 'post-payments-payment-refund',
-                    'body' => 'Auth: Sanctum + `refund` policy (`payments.manage` permission). Full or partial refund (§30).
+                    'body' => 'Auth: Sanctum + `refund` policy (`payments.manage` permission). Full or partial refund.
 **Body:** `amount` (optional, numeric, >0 — omit for a full refund of whatever\'s left unpaid-back).
 **Response 200:** `PaymentResource` (updated `amount_refunded`/`status`).
 **Errors:** 422 if the payment can\'t be refunded (not paid) or the amount exceeds what\'s refundable.',
@@ -778,7 +778,7 @@ Response: `{"status": "ok"|"unavailable", "checks": {...}}`. 200 or 503.',
                     'path' => '/api/v1/waitlist',
                     'idempotent' => true,
                     'slug' => 'post-waitlist',
-                    'body' => 'Auth: Sanctum. Join the waitlist for a slot that\'s currently taken (§29) — automatically notified if it frees up.
+                    'body' => 'Auth: Sanctum. Join the waitlist for a slot that\'s currently taken — automatically notified if it frees up.
 **Body:** `service_id` (required), `resource_id` (optional — omit to be notified for *any* resource offering the service), `desired_start_at` (required, date, after now).
 **Response 201:** `WaitlistEntryResource`.',
                 ],
@@ -793,7 +793,7 @@ Response: `{"status": "ok"|"unavailable", "checks": {...}}`. 200 or 503.',
         ],
         18 => [
             'name' => 'API Keys',
-            'intro' => 'Long-lived scoped bearer credentials (§45) that authenticate as their creating user, narrowed by scope.',
+            'intro' => 'Long-lived scoped bearer credentials that authenticate as their creating user, narrowed by scope.',
             'endpoints' => [
                 0 => [
                     'method' => 'GET',
@@ -824,7 +824,7 @@ Response: `{"status": "ok"|"unavailable", "checks": {...}}`. 200 or 503.',
         ],
         19 => [
             'name' => 'Webhook Endpoints',
-            'intro' => 'Outbound webhook subscriptions (§41).',
+            'intro' => 'Outbound webhook subscriptions.',
             'endpoints' => [
                 0 => [
                     'method' => 'GET',
@@ -896,7 +896,7 @@ Response: `{"status": "ok"|"unavailable", "checks": {...}}`. 200 or 503.',
                     'path' => '/api/v1/webhooks/stripe',
                     'idempotent' => false,
                     'slug' => 'post-webhooks-stripe',
-                    'body' => 'No Sanctum auth — verified via the `Stripe-Signature` header instead (§32). Configure this URL in the Stripe Dashboard (or `stripe listen --forward-to`).
+                    'body' => 'No Sanctum auth — verified via the `Stripe-Signature` header instead. Configure this URL in the Stripe Dashboard (or `stripe listen --forward-to`).
 **Body:** raw Stripe event payload (as sent by Stripe).
 **Response 200:** `{"status": "accepted"}` (queued for processing) or `{"status": "already_received"}` (duplicate `event_id`, safe no-op — Stripe retries aggressively on anything but 2xx).
 **Response 400:** `{"error": {"code": "INVALID_SIGNATURE"}}` if the signature doesn\'t verify.',
@@ -908,7 +908,7 @@ Response: `{"status": "ok"|"unavailable", "checks": {...}}`. 200 or 503.',
             'intro' => '- **Booking status**: `pending`, `held`, `awaiting_payment`, `confirmed`, `checked_in`, `completed`, `cancelled`, `no_show`, `expired`.
 - **Payment status**: `pending`, `authorized`, `paid`, `failed`, `refunded`, `partially_refunded`.
 - **Payment mode** (service-level): `none`, `full`, `deposit`, `pay_after`.
-- **Resource allocation strategy** (§70, organization setting): `first_available`, `least_booked`, `round_robin`, `priority` (reads `resource.metadata.priority`, lower = higher priority), `random`.
+- **Resource allocation strategy** (organization setting): `first_available`, `least_booked`, `round_robin`, `priority` (reads `resource.metadata.priority`, lower = higher priority), `random`.
 - **Recurring booking strategy**: `all_or_nothing`, `book_available`.
 - **Webhook event type**: `booking.created`, `booking.confirmed`, `booking.cancelled`, `payment.completed`.
 - **Resource block reason**: `maintenance`, `private_event`, `manual_block`, `external_calendar`, `other`.
