@@ -31,7 +31,7 @@ function nextDateForDayOfWeek(int $dayOfWeek): string
 it('returns slots only within scheduled working hours, across multiple intervals', function () {
     $organization = Organization::factory()->create();
     actingAsMember($this, $organization, Role::OrganizationOwner);
-    [$resource, $service] = makeBookableResource($organization, 60);
+    [$resource, $service] = makeBookableResource($organization, 60, withOpenSchedule: false);
 
     $monday = nextDateForDayOfWeek(1);
     $dayOfWeek = CarbonImmutable::parse($monday)->dayOfWeek;
@@ -55,7 +55,7 @@ it('returns slots only within scheduled working hours, across multiple intervals
 it('excludes a day entirely when it has a closed exception', function () {
     $organization = Organization::factory()->create();
     actingAsMember($this, $organization, Role::OrganizationOwner);
-    [$resource, $service] = makeBookableResource($organization, 60);
+    [$resource, $service] = makeBookableResource($organization, 60, withOpenSchedule: false);
 
     $monday = nextDateForDayOfWeek(1);
     $dayOfWeek = CarbonImmutable::parse($monday)->dayOfWeek;
@@ -76,7 +76,7 @@ it('excludes a day entirely when it has a closed exception', function () {
 it('uses custom hours from an exception instead of the normal schedule', function () {
     $organization = Organization::factory()->create();
     actingAsMember($this, $organization, Role::OrganizationOwner);
-    [$resource, $service] = makeBookableResource($organization, 60);
+    [$resource, $service] = makeBookableResource($organization, 60, withOpenSchedule: false);
 
     $monday = nextDateForDayOfWeek(1);
     $dayOfWeek = CarbonImmutable::parse($monday)->dayOfWeek;
@@ -99,7 +99,7 @@ it('uses custom hours from an exception instead of the normal schedule', functio
 it('excludes a slot that overlaps an existing confirmed booking', function () {
     $organization = Organization::factory()->create();
     actingAsMember($this, $organization, Role::OrganizationOwner);
-    [$resource, $service] = makeBookableResource($organization, 60);
+    [$resource, $service] = makeBookableResource($organization, 60, withOpenSchedule: false);
 
     $monday = nextDateForDayOfWeek(1);
     $dayOfWeek = CarbonImmutable::parse($monday)->dayOfWeek;
@@ -128,7 +128,7 @@ it('excludes a slot that overlaps an existing confirmed booking', function () {
 it('excludes a slot held by another customer', function () {
     $organization = Organization::factory()->create();
     actingAsMember($this, $organization, Role::OrganizationOwner);
-    [$resource, $service] = makeBookableResource($organization, 60);
+    [$resource, $service] = makeBookableResource($organization, 60, withOpenSchedule: false);
 
     $monday = nextDateForDayOfWeek(1);
     $dayOfWeek = CarbonImmutable::parse($monday)->dayOfWeek;
@@ -154,7 +154,7 @@ it('excludes a slot held by another customer', function () {
 it('excludes a slot covered by a resource block', function () {
     $organization = Organization::factory()->create();
     actingAsMember($this, $organization, Role::OrganizationOwner);
-    [$resource, $service] = makeBookableResource($organization, 60);
+    [$resource, $service] = makeBookableResource($organization, 60, withOpenSchedule: false);
 
     $monday = nextDateForDayOfWeek(1);
     $dayOfWeek = CarbonImmutable::parse($monday)->dayOfWeek;
@@ -179,7 +179,7 @@ it('excludes a slot covered by a resource block', function () {
 it('respects buffer_after by keeping the next slot clear', function () {
     $organization = Organization::factory()->create();
     actingAsMember($this, $organization, Role::OrganizationOwner);
-    [$resource, $service] = makeBookableResource($organization, 60);
+    [$resource, $service] = makeBookableResource($organization, 60, withOpenSchedule: false);
     $service->update(['buffer_after_minutes' => 30]);
 
     $monday = nextDateForDayOfWeek(1);
@@ -214,7 +214,7 @@ it('respects buffer_after by keeping the next slot clear', function () {
 it('excludes slots before the organization minimum notice window', function () {
     $organization = Organization::factory()->create(['settings' => ['booking_min_notice_minutes' => 1440]]);
     actingAsMember($this, $organization, Role::OrganizationOwner);
-    [$resource, $service] = makeBookableResource($organization, 60);
+    [$resource, $service] = makeBookableResource($organization, 60, withOpenSchedule: false);
 
     $today = CarbonImmutable::today('UTC')->toDateString();
     $dayOfWeek = CarbonImmutable::parse($today)->dayOfWeek;
@@ -287,7 +287,7 @@ it('excludes resources whose capacity is below the requested party_size', functi
 it('renders slots in the requested timezone offset', function () {
     $organization = Organization::factory()->create();
     actingAsMember($this, $organization, Role::OrganizationOwner);
-    [$resource, $service] = makeBookableResource($organization, 60);
+    [$resource, $service] = makeBookableResource($organization, 60, withOpenSchedule: false);
 
     $monday = nextDateForDayOfWeek(1);
     $dayOfWeek = CarbonImmutable::parse($monday, 'Europe/Bucharest')->dayOfWeek;
@@ -311,7 +311,7 @@ it('shifts the UTC offset correctly across a DST transition', function () {
     // must still render as 09:00 local, with the offset changing.
     $organization = Organization::factory()->create();
     actingAsMember($this, $organization, Role::OrganizationOwner);
-    [$resource, $service] = makeBookableResource($organization, 60);
+    [$resource, $service] = makeBookableResource($organization, 60, withOpenSchedule: false);
 
     $beforeDst = CarbonImmutable::parse('2026-10-24', 'Europe/Bucharest'); // Saturday, still EEST
     $afterDst = CarbonImmutable::parse('2026-10-26', 'Europe/Bucharest'); // Monday, now EET
@@ -339,7 +339,7 @@ it('shifts the UTC offset correctly across a DST transition', function () {
 it('reflects a newly created booking on the very next availability call (cache invalidation)', function () {
     $organization = Organization::factory()->create();
     $owner = actingAsMember($this, $organization, Role::OrganizationOwner);
-    [$resource, $service] = makeBookableResource($organization, 60);
+    [$resource, $service] = makeBookableResource($organization, 60, withOpenSchedule: false);
 
     $monday = nextDateForDayOfWeek(1);
     $dayOfWeek = CarbonImmutable::parse($monday)->dayOfWeek;
