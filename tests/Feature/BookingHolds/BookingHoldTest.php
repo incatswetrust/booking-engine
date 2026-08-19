@@ -7,16 +7,6 @@ use App\Domain\Resource\Resource;
 use App\Domain\Service\Service;
 use App\Models\User;
 
-function makeBookableResource(Organization $organization, int $durationMinutes = 60): array
-{
-    $location = Location::factory()->for($organization)->create();
-    $resource = Resource::factory()->for($organization)->for($location)->create();
-    $service = Service::factory()->for($organization)->create(['duration_minutes' => $durationMinutes]);
-    $service->resources()->attach($resource);
-
-    return [$resource, $service];
-}
-
 it('creates a hold for a free slot', function () {
     $organization = Organization::factory()->create();
     [$resource, $service] = makeBookableResource($organization);

@@ -32,7 +32,10 @@ class BookingHoldService
     {
         $endAt = $startAt->copy()->addMinutes($service->duration_minutes);
 
-        $lock = Cache::lock("booking-hold:resource:{$resource->id}", self::LOCK_WAIT_SECONDS + 2);
+        // Shares its lock namespace with BookingService: hold creation and
+        // booking creation must serialize against each other too, or a
+        // booking could be created over a slot someone else is holding.
+        $lock = Cache::lock("booking:resource:{$resource->id}", self::LOCK_WAIT_SECONDS + 2);
 
         try {
             return $lock->block(self::LOCK_WAIT_SECONDS, function () use ($customer, $resource, $service, $startAt, $endAt) {
