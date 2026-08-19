@@ -60,6 +60,11 @@ jobs:
           extensions: ${{ env.PHP_EXTENSIONS }}
           coverage: none
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
       - name: Cache composer dependencies
         uses: actions/cache@v4
         with:
@@ -68,6 +73,10 @@ jobs:
           restore-keys: composer-${{ runner.os }}-
 
       - run: composer install --no-interaction --prefer-dist --no-progress
+
+      - run: npm ci --no-audit --no-fund
+
+      - run: npm run build
 
       - run: cp .env.example .env
 
