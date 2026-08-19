@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\BookingController;
 use App\Http\Controllers\Api\V1\BookingHoldController;
 use App\Http\Controllers\Api\V1\LocationController;
 use App\Http\Controllers\Api\V1\OrganizationController;
@@ -48,5 +49,17 @@ Route::prefix('v1')->group(function () {
         Route::post('booking-holds', [BookingHoldController::class, 'store'])
             ->middleware('idempotent');
         Route::delete('booking-holds/{bookingHold}', [BookingHoldController::class, 'destroy']);
+
+        Route::apiResource('bookings', BookingController::class)
+            ->only(['index', 'show']);
+
+        Route::post('bookings', [BookingController::class, 'store'])
+            ->middleware('idempotent');
+
+        Route::post('bookings/{booking}/confirm', [BookingController::class, 'confirm']);
+        Route::post('bookings/{booking}/check-in', [BookingController::class, 'checkIn']);
+        Route::post('bookings/{booking}/complete', [BookingController::class, 'complete']);
+        Route::post('bookings/{booking}/cancel', [BookingController::class, 'cancel']);
+        Route::post('bookings/{booking}/reschedule', [BookingController::class, 'reschedule']);
     });
 });

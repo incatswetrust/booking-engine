@@ -2,12 +2,14 @@
 
 namespace App\Providers;
 
+use App\Domain\Booking\Booking;
 use App\Domain\Location\Location;
 use App\Domain\Organization\Organization;
 use App\Domain\Resource\Resource;
 use App\Domain\Resource\ResourceGroup;
 use App\Domain\Service\Service;
 use App\Models\User;
+use App\Policies\BookingPolicy;
 use App\Policies\LocationPolicy;
 use App\Policies\OrganizationPolicy;
 use App\Policies\ResourceGroupPolicy;
@@ -38,5 +40,6 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(ResourceGroup::class, ResourceGroupPolicy::class);
         Gate::policy(Resource::class, ResourcePolicy::class);
         Gate::policy(Service::class, ServicePolicy::class);
+        Gate::policy(Booking::class, BookingPolicy::class);
     }
 }
