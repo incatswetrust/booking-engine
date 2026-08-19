@@ -2,12 +2,9 @@
 
 namespace App\Console\Commands;
 
-use App\Domain\Booking\Events\BookingCancelled;
-use App\Domain\Booking\Events\BookingConfirmed;
-use App\Domain\Booking\Events\BookingCreated;
-use App\Domain\Booking\Events\BookingRescheduled;
 use App\Domain\Outbox\OutboxMessage;
 use App\Domain\Outbox\OutboxStatus;
+use App\Jobs\ProcessOutboxEvent;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -18,43 +15,39 @@ use Throwable;
  * BookingStateMachine only ever write rows to outbox_messages, inside
  * the same DB transaction as the change they describe. This command is
  * the "worker" the spec refers to — it polls that table separately from
- * any queue/broker, so a Redis outage at write time can't lose an
- * event, only delay its relay.
+ * any queue/broker, so a Redis outage at write time can't lose an event,
+ * only delay its relay.
+ *
+ * This command only claims rows and dispatches them as real
+ * ShouldQueue jobs (ProcessOutboxEvent, run by Horizon on the "outbox"
+ * queue, §61) — it does not fire events or touch final status itself.
+ * That split matters: if Redis is down when we try to dispatch, the row
+ * just stays "pending" for the next poll instead of the event being
+ * lost, which is the same guarantee the outbox already gives at write
+ * time, now also covering the relay's own handoff to the queue.
  *
  * No listeners exist yet for these events (Phase 2 will add
- * SendConfirmationEmail, SyncGoogleCalendar, etc. against them) — firing
- * them here now still proves the write -> relay -> dispatch pipeline
- * works end to end, and Phase 2 listeners will "just work" once
- * registered, without touching this command or the writers.
+ * SendConfirmationEmail, SyncGoogleCalendar, etc. against them) — the
+ * write -> relay -> queue -> dispatch pipeline works end to end already,
+ * and Phase 2 listeners will "just work" once registered.
  */
 class OutboxRelay extends Command
 {
     protected $signature = 'outbox:relay
         {--once : Process a single batch and exit, instead of looping forever}
         {--batch=50 : Max messages to claim per poll}
-        {--sleep=1 : Seconds to sleep between polls when not using --once}
-        {--max-attempts=5 : Give up (mark failed) after this many failed attempts}';
+        {--sleep=1 : Seconds to sleep between polls when not using --once}';
 
-    protected $description = 'Relay pending outbox_messages rows as real domain events (§33-35)';
-
-    /**
-     * @var array<string, class-string>
-     */
-    private const EVENT_CLASSES = [
-        'BookingCreated' => BookingCreated::class,
-        'BookingConfirmed' => BookingConfirmed::class,
-        'BookingCancelled' => BookingCancelled::class,
-        'BookingRescheduled' => BookingRescheduled::class,
-    ];
+    protected $description = 'Relay pending outbox_messages rows as queued jobs (§33, §61)';
 
     public function handle(): int
     {
         $once = (bool) $this->option('once');
 
         do {
-            $processed = $this->relayBatch((int) $this->option('batch'), (int) $this->option('max-attempts'));
+            $claimed = $this->relayBatch((int) $this->option('batch'));
 
-            if (! $once && $processed === 0) {
+            if (! $once && $claimed === 0) {
                 sleep((int) $this->option('sleep'));
             }
         } while (! $once);
@@ -62,7 +55,7 @@ class OutboxRelay extends Command
         return self::SUCCESS;
     }
 
-    private function relayBatch(int $batchSize, int $maxAttempts): int
+    private function relayBatch(int $batchSize): int
     {
         $messages = DB::transaction(function () use ($batchSize) {
             $messages = OutboxMessage::query()
@@ -79,40 +72,27 @@ class OutboxRelay extends Command
         });
 
         foreach ($messages as $message) {
-            $this->relayOne($message, $maxAttempts);
+            $this->dispatchOne($message);
         }
 
         return $messages->count();
     }
 
-    private function relayOne(OutboxMessage $message, int $maxAttempts): void
+    private function dispatchOne(OutboxMessage $message): void
     {
         try {
-            $eventClass = self::EVENT_CLASSES[$message->event_type] ?? null;
-
-            if ($eventClass === null) {
-                throw new \RuntimeException("No event class registered for outbox event_type \"{$message->event_type}\".");
-            }
-
-            event(new $eventClass($message->aggregate_id, $message->payload));
-
-            $message->update(['status' => OutboxStatus::Processed, 'processed_at' => now()]);
+            ProcessOutboxEvent::dispatch($message->id)->onQueue('outbox');
         } catch (Throwable $e) {
-            $attempts = $message->attempts + 1;
-
-            Log::warning('Outbox relay failed to process message', [
+            Log::warning('Outbox relay failed to dispatch message to the queue', [
                 'outbox_message_id' => $message->id,
                 'event_type' => $message->event_type,
-                'attempt' => $attempts,
                 'error' => $e->getMessage(),
             ]);
 
             $message->update([
-                'attempts' => $attempts,
+                'status' => OutboxStatus::Pending,
                 'error' => $e->getMessage(),
-                'status' => $attempts >= $maxAttempts ? OutboxStatus::Failed : OutboxStatus::Pending,
-                // Exponential backoff, capped at 5 minutes.
-                'available_at' => now()->addSeconds(min(2 ** $attempts, 300)),
+                'available_at' => now()->addSeconds(10),
             ]);
         }
     }
