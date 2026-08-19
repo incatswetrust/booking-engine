@@ -14,6 +14,7 @@ use App\Domain\Resource\ResourceBlock;
 use App\Domain\Service\Service;
 use App\Http\Errors\ApiException;
 use App\Http\Errors\ErrorCode;
+use App\Infrastructure\Metrics\Metrics;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Cache\LockTimeoutException;
@@ -113,6 +114,8 @@ class BookingService
             }
 
             $this->availabilityCache->forgetForResource($resource);
+
+            Metrics::bookingCreated();
 
             return $booking;
         });
@@ -367,6 +370,8 @@ class BookingService
 
     private function slotUnavailable(Resource $resource, CarbonInterface $startAt): ApiException
     {
+        Metrics::bookingConflict();
+
         return new ApiException(
             ErrorCode::BookingSlotUnavailable,
             'The selected booking slot is no longer available.',

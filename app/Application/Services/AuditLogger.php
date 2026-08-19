@@ -3,6 +3,7 @@
 namespace App\Application\Services;
 
 use App\Domain\Audit\AuditLog;
+use App\Domain\Calendar\CalendarConnection;
 use App\Domain\Organization\Organization;
 use App\Domain\Payment\Payment;
 use App\Domain\Resource\ResourceBlock;
@@ -43,6 +44,10 @@ class AuditLogger
         }
 
         if ($entity instanceof ResourceBlock) {
+            return $entity->resource?->organization_id;
+        }
+
+        if ($entity instanceof CalendarConnection) {
             return $entity->resource?->organization_id;
         }
 
