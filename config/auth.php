@@ -42,6 +42,14 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // §45: the driver itself is registered via Auth::viaRequest('api-key', ...)
+        // in AppServiceProvider -- this just gives that driver a guard name
+        // the "auth:sanctum,api-key" middleware can reference.
+        'api-key' => [
+            'driver' => 'api-key',
+            'provider' => 'users',
+        ],
     ],
 
     /*

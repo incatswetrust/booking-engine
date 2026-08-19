@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\ApiKeyController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AvailabilityController;
 use App\Http\Controllers\Api\V1\BookingController;
@@ -40,11 +41,10 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('resource-groups', ResourceGroupController::class)
             ->parameter('resource-groups', 'resourceGroup');
 
-        Route::apiResource('resources', ResourceController::class);
+        Route::apiResource('resources', ResourceController::class)
+            ->except(['index', 'show']);
 
         Route::apiResource('services', ServiceController::class);
-
-        Route::get('availability', [AvailabilityController::class, 'index']);
 
         Route::get('resources/{resource}/schedule', [ScheduleController::class, 'index']);
         Route::put('resources/{resource}/schedule', [ScheduleController::class, 'update']);
@@ -60,20 +60,9 @@ Route::prefix('v1')->group(function () {
             ->middleware('idempotent');
         Route::delete('booking-holds/{bookingHold}', [BookingHoldController::class, 'destroy']);
 
-        Route::apiResource('bookings', BookingController::class)
-            ->only(['index', 'show']);
-
-        Route::post('bookings', [BookingController::class, 'store'])
-            ->middleware('idempotent');
-
         Route::post('bookings/{booking}/confirm', [BookingController::class, 'confirm']);
         Route::post('bookings/{booking}/check-in', [BookingController::class, 'checkIn']);
         Route::post('bookings/{booking}/complete', [BookingController::class, 'complete']);
-        Route::post('bookings/{booking}/cancel', [BookingController::class, 'cancel']);
-        Route::post('bookings/{booking}/reschedule', [BookingController::class, 'reschedule']);
-
-        Route::post('bookings/{booking}/payment', [BookingController::class, 'payment'])
-            ->middleware('idempotent');
 
         Route::get('payments', [PaymentController::class, 'index']);
         Route::get('payments/{payment}', [PaymentController::class, 'show']);
@@ -84,5 +73,32 @@ Route::prefix('v1')->group(function () {
         Route::post('waitlist', [WaitlistController::class, 'store'])
             ->middleware('idempotent');
         Route::delete('waitlist/{waitlistEntry}', [WaitlistController::class, 'destroy']);
+
+        Route::apiResource('api-keys', ApiKeyController::class)
+            ->only(['index', 'store', 'destroy']);
+    });
+
+    // §45: also reachable via an API key (Authorization: Bearer booking_live_...),
+    // not just a Sanctum session token -- narrowed to exactly the four scopes
+    // §45 defines, via api-key-scope. A Sanctum-authenticated user passes
+    // through unscoped, same as every other route.
+    Route::middleware('auth:sanctum,api-key')->group(function () {
+        Route::get('resources', [ResourceController::class, 'index'])->middleware('api-key-scope:resources:read');
+        Route::get('resources/{resource}', [ResourceController::class, 'show'])->middleware('api-key-scope:resources:read');
+
+        Route::get('availability', [AvailabilityController::class, 'index'])->middleware('api-key-scope:availability:read');
+
+        Route::apiResource('bookings', BookingController::class)
+            ->only(['index', 'show'])
+            ->middleware('api-key-scope:bookings:read');
+
+        Route::post('bookings', [BookingController::class, 'store'])
+            ->middleware(['idempotent', 'api-key-scope:bookings:write']);
+        Route::post('bookings/{booking}/cancel', [BookingController::class, 'cancel'])
+            ->middleware('api-key-scope:bookings:write');
+        Route::post('bookings/{booking}/reschedule', [BookingController::class, 'reschedule'])
+            ->middleware('api-key-scope:bookings:write');
+        Route::post('bookings/{booking}/payment', [BookingController::class, 'payment'])
+            ->middleware(['idempotent', 'api-key-scope:bookings:write']);
     });
 });

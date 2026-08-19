@@ -2,6 +2,7 @@
 
 namespace App\Domain\Organization;
 
+use App\Domain\ApiKey\ApiKey;
 use App\Domain\Auth\Role;
 use App\Domain\Concerns\Auditable;
 use App\Domain\Concerns\HasPublicId;
@@ -118,5 +119,13 @@ class Organization extends Model
     public function services(): HasMany
     {
         return $this->hasMany(Service::class);
+    }
+
+    /**
+     * @return HasMany<ApiKey, $this>
+     */
+    public function apiKeys(): HasMany
+    {
+        return $this->hasMany(ApiKey::class);
     }
 }
