@@ -37,6 +37,7 @@ class Booking extends Model
         'resource_capacity',
         'cancelled_at',
         'external_calendar_event_id',
+        'recurring_booking_id',
     ];
 
     protected $casts = [

@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\CalendarConnectionController;
 use App\Http\Controllers\Api\V1\LocationController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\PaymentController;
+use App\Http\Controllers\Api\V1\RecurringBookingController;
 use App\Http\Controllers\Api\V1\ResourceBlockController;
 use App\Http\Controllers\Api\V1\ResourceController;
 use App\Http\Controllers\Api\V1\ResourceGroupController;
@@ -118,6 +119,9 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
         Route::post('bookings/{booking}/reschedule', [BookingController::class, 'reschedule'])
             ->middleware('api-key-scope:bookings:write');
         Route::post('bookings/{booking}/payment', [BookingController::class, 'payment'])
+            ->middleware(['idempotent', 'api-key-scope:bookings:write']);
+
+        Route::post('recurring-bookings', [RecurringBookingController::class, 'store'])
             ->middleware(['idempotent', 'api-key-scope:bookings:write']);
     });
 });
