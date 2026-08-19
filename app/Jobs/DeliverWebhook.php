@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Domain\Webhook\WebhookDelivery;
 use App\Domain\Webhook\WebhookDeliveryStatus;
+use App\Infrastructure\Metrics\Metrics;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -73,26 +74,34 @@ class DeliverWebhook implements ShouldQueue
                 ->timeout(10)
                 ->post($endpoint->url);
 
+            $durationMs = (int) ((microtime(true) - $startedAt) * 1000);
+
             $delivery->update([
                 'status_code' => $response->status(),
                 'response_body' => Str::limit($response->body(), 2000),
-                'duration_ms' => (int) ((microtime(true) - $startedAt) * 1000),
+                'duration_ms' => $durationMs,
             ]);
 
             if ($response->successful()) {
                 $delivery->update(['status' => WebhookDeliveryStatus::Delivered, 'next_retry_at' => null]);
+
+                Metrics::webhookDelivery(success: true, durationMs: $durationMs);
 
                 return;
             }
 
             throw new RuntimeException("Webhook endpoint responded with status {$response->status()}.");
         } catch (Throwable $e) {
+            $durationMs = (int) ((microtime(true) - $startedAt) * 1000);
+
             if ($delivery->status_code === null) {
                 $delivery->update([
                     'response_body' => Str::limit($e->getMessage(), 2000),
-                    'duration_ms' => (int) ((microtime(true) - $startedAt) * 1000),
+                    'duration_ms' => $durationMs,
                 ]);
             }
+
+            Metrics::webhookDelivery(success: false, durationMs: $durationMs);
 
             // Purely informational -- Laravel's own queue backoff is what
             // actually schedules the retry, this just keeps

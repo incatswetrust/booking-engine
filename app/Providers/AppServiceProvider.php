@@ -15,6 +15,7 @@ use App\Domain\Service\Service;
 use App\Domain\Waitlist\WaitlistEntry;
 use App\Domain\Webhook\WebhookDelivery;
 use App\Domain\Webhook\WebhookEndpoint;
+use App\Infrastructure\Metrics\Metrics;
 use App\Models\User;
 use App\Policies\ApiKeyPolicy;
 use App\Policies\BookingPolicy;
@@ -31,7 +32,9 @@ use App\Policies\WebhookEndpointPolicy;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -127,5 +130,11 @@ class AppServiceProvider extends ServiceProvider
 
             return $limits;
         });
+
+        // §55: "failed jobs" -- fires for every queue connection/job class
+        // once it exhausts its own retry budget, not just webhooks/calendar.
+        Event::listen(JobFailed::class, fn (JobFailed $event) => Metrics::jobFailed($event->job->resolveName()));
+
+        Metrics::registerQueueSizeGauge();
     }
 }

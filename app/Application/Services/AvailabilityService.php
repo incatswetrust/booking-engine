@@ -11,6 +11,7 @@ use App\Domain\Resource\Resource;
 use App\Domain\Schedule\ScheduleExceptionType;
 use App\Domain\Schedule\ScheduleRule;
 use App\Domain\Service\Service;
+use App\Infrastructure\Metrics\Metrics;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use DateTimeZone;
@@ -63,7 +64,13 @@ class AvailabilityService
                 $dateFrom,
                 $dateTo,
                 $timezone,
-                fn () => $this->computeForResource($resource, $service, $dateFrom, $dateTo, $timezone),
+                function () use ($resource, $service, $dateFrom, $dateTo, $timezone) {
+                    $startedAt = microtime(true);
+                    $result = $this->computeForResource($resource, $service, $dateFrom, $dateTo, $timezone);
+                    Metrics::availabilityCalculation((microtime(true) - $startedAt) * 1000);
+
+                    return $result;
+                },
             );
 
             foreach ($days as $date => $slots) {
