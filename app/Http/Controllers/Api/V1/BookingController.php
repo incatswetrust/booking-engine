@@ -3,17 +3,20 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Application\Services\BookingService;
+use App\Application\Services\PaymentService;
 use App\Domain\Auth\Permission;
 use App\Domain\Booking\Booking;
 use App\Domain\Booking\BookingHold;
 use App\Domain\Location\Location;
 use App\Domain\Organization\Organization;
+use App\Domain\Payment\Payment;
 use App\Domain\Resource\Resource;
 use App\Domain\Service\Service;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\RescheduleBookingRequest;
 use App\Http\Requests\Booking\StoreBookingRequest;
 use App\Http\Resources\BookingResource;
+use App\Http\Resources\PaymentResource;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -28,7 +31,10 @@ class BookingController extends Controller
 {
     use AuthorizesRequests;
 
-    public function __construct(private readonly BookingService $bookings) {}
+    public function __construct(
+        private readonly BookingService $bookings,
+        private readonly PaymentService $payments,
+    ) {}
 
     #[OA\Get(
         path: '/api/v1/bookings',
@@ -237,5 +243,29 @@ class BookingController extends Controller
         );
 
         return new BookingResource($booking);
+    }
+
+    #[OA\Post(
+        path: '/api/v1/bookings/{booking}/payment',
+        summary: 'Start a Stripe PaymentIntent for a booking that requires payment (§30, §31)',
+        tags: ['Bookings'],
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 201, description: 'Payment created, includes the Stripe client_secret to complete it'),
+            new OA\Response(response: 422, description: 'Booking does not need payment right now, or already has an active one'),
+        ],
+    )]
+    public function payment(Request $request, Booking $booking): JsonResponse
+    {
+        $this->authorize('initiate', [Payment::class, $booking]);
+
+        $result = $this->payments->createForBooking($booking);
+
+        $payload = array_merge(
+            (new PaymentResource($result['payment']))->toArray($request),
+            ['client_secret' => $result['client_secret']],
+        );
+
+        return response()->json(['data' => $payload], 201);
     }
 }

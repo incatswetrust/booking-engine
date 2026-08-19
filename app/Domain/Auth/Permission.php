@@ -22,6 +22,12 @@ enum Permission: string
     case BookingsCancel = 'bookings.cancel';
 
     case PaymentsRead = 'payments.read';
+    /**
+     * Not in §6's example list — needed once refunds/staff-initiated
+     * payments exist (Phase 2): payments.read alone would let any staff
+     * member issue a refund, which is a money-moving action.
+     */
+    case PaymentsManage = 'payments.manage';
 
     case IntegrationsManage = 'integrations.manage';
 

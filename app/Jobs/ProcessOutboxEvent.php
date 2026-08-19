@@ -8,6 +8,7 @@ use App\Domain\Booking\Events\BookingCreated;
 use App\Domain\Booking\Events\BookingRescheduled;
 use App\Domain\Outbox\OutboxMessage;
 use App\Domain\Outbox\OutboxStatus;
+use App\Domain\Payment\Events\StripeWebhookReceived;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -24,6 +25,11 @@ use Throwable;
  * job — everything about firing the domain event and updating the
  * outbox_messages row happens here, retried by Laravel's own queue
  * machinery instead of a hand-rolled loop.
+ *
+ * StripeWebhookReceived is listened to by App\Listeners\
+ * ProcessPaymentWebhook (§32) — reusing this exact same pipeline is what
+ * makes Stripe webhook processing durable across a Redis outage, the
+ * same guarantee the outbox already gave bookings.
  */
 class ProcessOutboxEvent implements ShouldQueue
 {
@@ -39,6 +45,7 @@ class ProcessOutboxEvent implements ShouldQueue
         'BookingConfirmed' => BookingConfirmed::class,
         'BookingCancelled' => BookingCancelled::class,
         'BookingRescheduled' => BookingRescheduled::class,
+        'StripeWebhookReceived' => StripeWebhookReceived::class,
     ];
 
     public function __construct(public readonly int $outboxMessageId) {}

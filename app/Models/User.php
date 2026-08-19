@@ -16,7 +16,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'password', 'telegram_chat_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -61,5 +61,13 @@ class User extends Authenticatable
         $role = $organization->roleFor($this);
 
         return $role !== null && RolePermissions::grants($role, $permission);
+    }
+
+    /**
+     * Notifiable's routing convention for App\Notifications\Channels\TelegramChannel.
+     */
+    public function routeNotificationForTelegram(): ?string
+    {
+        return $this->telegram_chat_id;
     }
 }

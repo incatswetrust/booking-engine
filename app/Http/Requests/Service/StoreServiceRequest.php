@@ -4,8 +4,10 @@ namespace App\Http\Requests\Service;
 
 use App\Domain\Organization\Organization;
 use App\Domain\Resource\Resource;
+use App\Domain\Service\PaymentMode;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rules\Enum;
 
 class StoreServiceRequest extends FormRequest
 {
@@ -30,6 +32,8 @@ class StoreServiceRequest extends FormRequest
             'currency' => ['required', 'string', 'size:3'],
             'resource_ids' => ['sometimes', 'array'],
             'resource_ids.*' => ['string', 'exists:resources,public_id'],
+            'payment_mode' => ['sometimes', new Enum(PaymentMode::class)],
+            'deposit_amount' => ['required_if:payment_mode,deposit', 'nullable', 'numeric', 'min:0.01'],
         ];
     }
 
@@ -38,16 +42,21 @@ class StoreServiceRequest extends FormRequest
         $validator->after(function (Validator $validator) {
             $organization = Organization::where('public_id', $this->input('organization_id'))->first();
 
-            if (! $organization || ! $this->filled('resource_ids')) {
-                return;
+            if ($organization && $this->filled('resource_ids')) {
+                $foreignResourceCount = Resource::whereIn('public_id', $this->input('resource_ids'))
+                    ->where('organization_id', '!=', $organization->id)
+                    ->count();
+
+                if ($foreignResourceCount > 0) {
+                    $validator->errors()->add('resource_ids', 'All resources must belong to the given organization.');
+                }
             }
 
-            $foreignResourceCount = Resource::whereIn('public_id', $this->input('resource_ids'))
-                ->where('organization_id', '!=', $organization->id)
-                ->count();
-
-            if ($foreignResourceCount > 0) {
-                $validator->errors()->add('resource_ids', 'All resources must belong to the given organization.');
+            if ($this->input('payment_mode') === 'deposit'
+                && $this->filled('deposit_amount')
+                && $this->filled('price')
+                && (float) $this->input('deposit_amount') > (float) $this->input('price')) {
+                $validator->errors()->add('deposit_amount', 'The deposit amount cannot exceed the service price.');
             }
         });
     }
