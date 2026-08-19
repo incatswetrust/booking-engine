@@ -13,11 +13,16 @@ use App\Http\Controllers\Api\V1\ResourceGroupController;
 use App\Http\Controllers\Api\V1\ScheduleController;
 use App\Http\Controllers\Api\V1\ScheduleExceptionController;
 use App\Http\Controllers\Api\V1\ServiceController;
+use App\Http\Controllers\Api\V1\StripeWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     Route::post('auth/register', [AuthController::class, 'register']);
     Route::post('auth/login', [AuthController::class, 'login']);
+
+    // Not authenticated via Sanctum -- Stripe verifies itself via
+    // Stripe-Signature (§32), a bearer token wouldn't make sense here.
+    Route::post('webhooks/stripe', [StripeWebhookController::class, 'handle']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout']);
