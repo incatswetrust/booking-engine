@@ -6,6 +6,8 @@ use App\Domain\Booking\Booking;
 use App\Domain\Booking\BookingHold;
 use App\Domain\Booking\BookingStateMachine;
 use App\Domain\Booking\BookingStatus;
+use App\Domain\Booking\Events\BookingCreated;
+use App\Domain\Booking\Events\BookingRescheduled;
 use App\Domain\Resource\Resource;
 use App\Domain\Resource\ResourceBlock;
 use App\Domain\Service\Service;
@@ -32,6 +34,7 @@ class BookingService
         private readonly BookingStateMachine $stateMachine,
         private readonly AvailabilityCache $availabilityCache,
         private readonly AuditLogger $auditLogger,
+        private readonly OutboxWriter $outboxWriter,
     ) {}
 
     public function create(
@@ -79,6 +82,7 @@ class BookingService
                     ]);
 
                     $this->auditLogger->log('booking.created', $booking, null, $booking->toArray());
+                    $this->outboxWriter->record(class_basename(BookingCreated::class), $booking, $booking->toOutboxPayload());
 
                     // MVP ships without Stripe (§66): every booking is
                     // effectively "no payment required" for now, so it
@@ -122,21 +126,33 @@ class BookingService
             $oldEndAt = $booking->end_at;
 
             try {
-                // A single UPDATE on the existing row is what makes this
-                // atomic (§27): the exclusion constraint is checked against
-                // every other row in the same statement, so the old slot is
-                // never released before the new one is confirmed free.
+                // A single UPDATE on the existing row is what makes the
+                // reschedule itself atomic (§27): the exclusion constraint
+                // is checked against every other row in the same statement,
+                // so the old slot is never released before the new one is
+                // confirmed free. The audit/outbox writes are wrapped in
+                // their own transaction below so they can never end up
+                // recorded without the reschedule (or vice versa).
                 $booking->forceFill(['start_at' => $newStartAt, 'end_at' => $newEndAt])->save();
             } catch (QueryException $e) {
                 throw $this->isOverlapViolation($e) ? $this->slotUnavailable($resource, $newStartAt) : $e;
             }
 
-            $this->auditLogger->log(
-                'booking.rescheduled',
-                $booking,
-                ['start_at' => $oldStartAt->toIso8601String(), 'end_at' => $oldEndAt->toIso8601String()],
-                ['start_at' => $newStartAt->toIso8601String(), 'end_at' => $newEndAt->toIso8601String()],
-            );
+            DB::transaction(function () use ($booking, $oldStartAt, $oldEndAt, $newStartAt, $newEndAt): void {
+                $this->auditLogger->log(
+                    'booking.rescheduled',
+                    $booking,
+                    ['start_at' => $oldStartAt->toIso8601String(), 'end_at' => $oldEndAt->toIso8601String()],
+                    ['start_at' => $newStartAt->toIso8601String(), 'end_at' => $newEndAt->toIso8601String()],
+                );
+
+                $payload = $booking->toOutboxPayload() + [
+                    'old_start_at' => $oldStartAt->toIso8601String(),
+                    'old_end_at' => $oldEndAt->toIso8601String(),
+                ];
+
+                $this->outboxWriter->record(class_basename(BookingRescheduled::class), $booking, $payload);
+            });
 
             $this->availabilityCache->forgetForResource($resource);
 

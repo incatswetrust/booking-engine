@@ -42,6 +42,11 @@ services:
     container_name: booking-engine-scheduler
     command: ["php", "artisan", "schedule:work"]
 
+  outbox:
+    <<: *app-image
+    container_name: booking-engine-outbox
+    command: ["php", "artisan", "outbox:relay"]
+
   pgsql:
     image: postgres:16-alpine
     container_name: booking-engine-pgsql
