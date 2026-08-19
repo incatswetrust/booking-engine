@@ -2,6 +2,7 @@
 
 namespace App\Domain\Location;
 
+use App\Domain\Concerns\Auditable;
 use App\Domain\Concerns\HasPublicId;
 use App\Domain\Organization\Organization;
 use Database\Factories\LocationFactory;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Location extends Model
 {
     /** @use HasFactory<LocationFactory> */
-    use HasFactory, HasPublicId;
+    use Auditable, HasFactory, HasPublicId;
 
     protected $fillable = [
         'organization_id',

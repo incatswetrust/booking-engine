@@ -3,6 +3,7 @@
 namespace App\Domain\Organization;
 
 use App\Domain\Auth\Role;
+use App\Domain\Concerns\Auditable;
 use App\Domain\Concerns\HasPublicId;
 use App\Domain\Location\Location;
 use App\Domain\Resource\Resource;
@@ -18,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Organization extends Model
 {
     /** @use HasFactory<OrganizationFactory> */
-    use HasFactory, HasPublicId;
+    use Auditable, HasFactory, HasPublicId;
 
     protected $fillable = [
         'name',
@@ -52,6 +53,14 @@ class Organization extends Model
             'cancellation_notice_minutes' => 1440,
             'default_booking_duration' => 60,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $changes
+     */
+    protected static function auditActionForUpdate(array $changes): string
+    {
+        return array_key_exists('settings', $changes) ? 'organization.settings_changed' : 'organization.updated';
     }
 
     /**

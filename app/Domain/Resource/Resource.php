@@ -2,6 +2,7 @@
 
 namespace App\Domain\Resource;
 
+use App\Domain\Concerns\Auditable;
 use App\Domain\Concerns\HasPublicId;
 use App\Domain\Location\Location;
 use App\Domain\Organization\Organization;
@@ -18,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Resource extends Model
 {
     /** @use HasFactory<ResourceFactory> */
-    use HasFactory, HasPublicId;
+    use Auditable, HasFactory, HasPublicId;
 
     protected $fillable = [
         'organization_id',
