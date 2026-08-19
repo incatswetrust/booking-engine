@@ -24,6 +24,7 @@ class ServiceResource extends JsonResource
             'buffer_after_minutes' => $this->buffer_after_minutes,
             'price' => (float) $this->price,
             'currency' => $this->currency,
+            'pricing_rules' => $this->pricing_rules,
             'status' => $this->status,
             'payment_mode' => $this->payment_mode,
             'deposit_amount' => $this->deposit_amount !== null ? (float) $this->deposit_amount : null,

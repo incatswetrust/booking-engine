@@ -41,6 +41,7 @@ class BookingService
         private readonly OutboxWriter $outboxWriter,
         private readonly AvailabilityService $availability,
         private readonly PaymentService $paymentService,
+        private readonly PricingEngine $pricing,
     ) {}
 
     public function create(
@@ -62,9 +63,14 @@ class BookingService
             $this->assertCapacityAvailable($resource, $startAt, $endAt, $partySize, excludeHoldId: $consumedHold?->id);
             $this->assertNoBlockingBlock($resource, $startAt, $endAt);
 
+            // §71: computed once, here, from the resource's occupancy
+            // right before this booking is inserted -- never
+            // recalculated afterwards, including on reschedule.
+            $price = $this->pricing->calculate($service, $resource, $startAt, $endAt);
+
             try {
                 $booking = DB::transaction(function () use (
-                    $actor, $customer, $resource, $service, $startAt, $endAt, $partySize, $notes, $consumedHold,
+                    $actor, $customer, $resource, $service, $startAt, $endAt, $partySize, $notes, $consumedHold, $price,
                 ) {
                     $booking = Booking::create([
                         'organization_id' => $resource->organization_id,
@@ -75,7 +81,7 @@ class BookingService
                         'start_at' => $startAt,
                         'end_at' => $endAt,
                         'status' => BookingStatus::Pending,
-                        'price' => $service->price,
+                        'price' => $price,
                         'currency' => $service->currency,
                         'notes' => $notes,
                         'party_size' => $partySize,
