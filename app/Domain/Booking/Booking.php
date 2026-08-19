@@ -102,4 +102,28 @@ class Booking extends Model
     {
         return $this->hasMany(BookingStatusHistory::class);
     }
+
+    /**
+     * The payload domain events (§34) carry through the outbox (§33) —
+     * public ids only, never internal numeric keys, since these are
+     * meant to be readable by out-of-process consumers later (Phase 2
+     * listeners like SendConfirmationEmail).
+     *
+     * @return array<string, mixed>
+     */
+    public function toOutboxPayload(): array
+    {
+        return [
+            'booking_id' => $this->public_id,
+            'organization_id' => $this->organization->public_id,
+            'customer_id' => $this->customer->public_id,
+            'resource_id' => $this->resource->public_id,
+            'service_id' => $this->service->public_id,
+            'status' => $this->status->value,
+            'start_at' => $this->start_at->toIso8601String(),
+            'end_at' => $this->end_at->toIso8601String(),
+            'price' => (float) $this->price,
+            'currency' => $this->currency,
+        ];
+    }
 }

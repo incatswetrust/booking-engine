@@ -3,20 +3,35 @@
 namespace App\Domain\Booking;
 
 use App\Application\Services\AuditLogger;
+use App\Application\Services\OutboxWriter;
+use App\Domain\Booking\Events\BookingCancelled;
+use App\Domain\Booking\Events\BookingConfirmed;
 use App\Http\Errors\ApiException;
 use App\Http\Errors\ErrorCode;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Explicit allowed transitions for Booking::status (§20). No caller is
  * allowed to set an arbitrary status — every change goes through
  * transition(), which validates the move and records it in
- * booking_status_history, and to audit_logs as "booking.<status>" (§49).
+ * booking_status_history, to audit_logs as "booking.<status>" (§49),
+ * and — for the two statuses §34 actually names as domain events — to
+ * the outbox (§33).
  */
 class BookingStateMachine
 {
+    /**
+     * @var array<string, class-string>
+     */
+    private const DOMAIN_EVENTS = [
+        'confirmed' => BookingConfirmed::class,
+        'cancelled' => BookingCancelled::class,
+    ];
+
     public function __construct(
         private readonly AuditLogger $auditLogger,
+        private readonly OutboxWriter $outboxWriter,
     ) {}
 
     /**
@@ -52,26 +67,32 @@ class BookingStateMachine
             );
         }
 
-        $booking->status = $to;
+        DB::transaction(function () use ($booking, $from, $to, $actor): void {
+            $booking->status = $to;
 
-        if ($to === BookingStatus::Cancelled) {
-            $booking->cancelled_at = now();
-        }
+            if ($to === BookingStatus::Cancelled) {
+                $booking->cancelled_at = now();
+            }
 
-        $booking->save();
+            $booking->save();
 
-        $booking->statusHistory()->create([
-            'from_status' => $from->value,
-            'to_status' => $to->value,
-            'changed_by_user_id' => $actor?->id,
-        ]);
+            $booking->statusHistory()->create([
+                'from_status' => $from->value,
+                'to_status' => $to->value,
+                'changed_by_user_id' => $actor?->id,
+            ]);
 
-        $this->auditLogger->log(
-            "booking.{$to->value}",
-            $booking,
-            ['status' => $from->value],
-            ['status' => $to->value],
-        );
+            $this->auditLogger->log(
+                "booking.{$to->value}",
+                $booking,
+                ['status' => $from->value],
+                ['status' => $to->value],
+            );
+
+            if ($eventClass = self::DOMAIN_EVENTS[$to->value] ?? null) {
+                $this->outboxWriter->record(class_basename($eventClass), $booking, $booking->toOutboxPayload());
+            }
+        });
 
         return $booking;
     }
