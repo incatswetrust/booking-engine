@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\ScheduleController;
 use App\Http\Controllers\Api\V1\ScheduleExceptionController;
 use App\Http\Controllers\Api\V1\ServiceController;
 use App\Http\Controllers\Api\V1\StripeWebhookController;
+use App\Http\Controllers\Api\V1\WaitlistController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -78,5 +79,10 @@ Route::prefix('v1')->group(function () {
         Route::get('payments/{payment}', [PaymentController::class, 'show']);
         Route::post('payments/{payment}/refund', [PaymentController::class, 'refund'])
             ->middleware('idempotent');
+
+        Route::get('waitlist', [WaitlistController::class, 'index']);
+        Route::post('waitlist', [WaitlistController::class, 'store'])
+            ->middleware('idempotent');
+        Route::delete('waitlist/{waitlistEntry}', [WaitlistController::class, 'destroy']);
     });
 });
