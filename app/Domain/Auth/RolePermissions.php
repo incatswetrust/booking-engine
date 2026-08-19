@@ -36,6 +36,7 @@ class RolePermissions
                 Permission::PaymentsManage,
                 Permission::IntegrationsManage,
                 Permission::UsersManage,
+                Permission::AnalyticsRead,
             ],
 
             Role::OrganizationManager => [

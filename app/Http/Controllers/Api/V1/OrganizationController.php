@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Application\Services\AnalyticsService;
 use App\Domain\Auth\Role;
 use App\Domain\Organization\Organization;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Organization\OrganizationStatisticsRequest;
 use App\Http\Requests\Organization\StoreOrganizationRequest;
 use App\Http\Requests\Organization\UpdateOrganizationRequest;
 use App\Http\Resources\OrganizationResource;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,6 +22,8 @@ use OpenApi\Attributes as OA;
 class OrganizationController extends Controller
 {
     use AuthorizesRequests;
+
+    public function __construct(private readonly AnalyticsService $analytics) {}
 
     #[OA\Get(
         path: '/api/v1/organizations',
@@ -98,5 +103,34 @@ class OrganizationController extends Controller
         $organization->update($request->validated());
 
         return new OrganizationResource($organization);
+    }
+
+    #[OA\Get(
+        path: '/api/v1/organizations/{organization}/statistics',
+        summary: 'Booking/revenue statistics for an organization (§5, Organization Owner "видеть статистику")',
+        tags: ['Organizations'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'date_from', in: 'query', schema: new OA\Schema(type: 'string', format: 'date'), description: 'Defaults to 30 days ago'),
+            new OA\Parameter(name: 'date_to', in: 'query', schema: new OA\Schema(type: 'string', format: 'date'), description: 'Defaults to today'),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Booking counts by status, revenue, cancellation rate, top services/resources'),
+            new OA\Response(response: 403, description: 'Missing analytics.read permission (Owner-only)'),
+        ],
+    )]
+    public function statistics(OrganizationStatisticsRequest $request, Organization $organization): JsonResponse
+    {
+        $this->authorize('viewStatistics', $organization);
+
+        $dateFrom = $request->filled('date_from')
+            ? CarbonImmutable::parse($request->validated('date_from'))->startOfDay()
+            : CarbonImmutable::now()->subDays(30)->startOfDay();
+
+        $dateTo = $request->filled('date_to')
+            ? CarbonImmutable::parse($request->validated('date_to'))->endOfDay()
+            : CarbonImmutable::now()->endOfDay();
+
+        return response()->json(['data' => $this->analytics->forOrganization($organization, $dateFrom, $dateTo)]);
     }
 }

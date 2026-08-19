@@ -45,6 +45,8 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
         Route::post('organizations', [OrganizationController::class, 'store'])
             ->middleware('idempotent');
 
+        Route::get('organizations/{organization}/statistics', [OrganizationController::class, 'statistics']);
+
         Route::apiResource('locations', LocationController::class);
 
         Route::apiResource('resource-groups', ResourceGroupController::class)

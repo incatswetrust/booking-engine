@@ -32,4 +32,11 @@ enum Permission: string
     case IntegrationsManage = 'integrations.manage';
 
     case UsersManage = 'users.manage';
+
+    /**
+     * §5/§69: "видеть статистику" is listed as an Organization Owner
+     * capability specifically, distinct from bookings/payments.read
+     * which Manager already has too.
+     */
+    case AnalyticsRead = 'analytics.read';
 }
