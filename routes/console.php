@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('idempotency:cleanup')->hourly();
+Schedule::command('bookings:expire-holds')->everyMinute();
