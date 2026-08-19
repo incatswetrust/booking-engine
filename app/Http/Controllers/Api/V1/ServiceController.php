@@ -62,6 +62,8 @@ class ServiceController extends Controller
             'buffer_after_minutes' => $request->validated('buffer_after_minutes', 0),
             'price' => $request->validated('price'),
             'currency' => strtoupper((string) $request->validated('currency')),
+            'pricing_rules' => $request->validated('pricing_rules'),
+            'cancellation_policy' => $request->validated('cancellation_policy'),
             'status' => 'active',
             'payment_mode' => $request->validated('payment_mode', 'none'),
             'deposit_amount' => $request->validated('deposit_amount'),

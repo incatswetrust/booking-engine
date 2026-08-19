@@ -25,9 +25,9 @@ class AvailabilityCache
      * @param  callable(): array<string, array<int, array{start: string, end: string, resource_id: string}>>  $resolver
      * @return array<string, array<int, array{start: string, end: string, resource_id: string}>>
      */
-    public function remember(Resource $resource, Service $service, CarbonImmutable $dateFrom, CarbonImmutable $dateTo, string $timezone, callable $resolver): array
+    public function remember(Resource $resource, Service $service, CarbonImmutable $dateFrom, CarbonImmutable $dateTo, string $timezone, int $partySize, callable $resolver): array
     {
-        $key = $this->key($resource, $service, $dateFrom, $dateTo, $timezone);
+        $key = $this->key($resource, $service, $dateFrom, $dateTo, $timezone, $partySize);
 
         return $this->taggedStore($resource)->remember($key, self::TTL_SECONDS, $resolver);
     }
@@ -42,7 +42,7 @@ class AvailabilityCache
         return Cache::tags(["availability:resource:{$resource->id}"]);
     }
 
-    private function key(Resource $resource, Service $service, CarbonImmutable $dateFrom, CarbonImmutable $dateTo, string $timezone): string
+    private function key(Resource $resource, Service $service, CarbonImmutable $dateFrom, CarbonImmutable $dateTo, string $timezone, int $partySize): string
     {
         return implode(':', [
             'availability',
@@ -51,6 +51,7 @@ class AvailabilityCache
             $dateFrom->toDateString(),
             $dateTo->toDateString(),
             $timezone,
+            $partySize,
         ]);
     }
 }

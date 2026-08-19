@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\V1\CalendarConnectionController;
 use App\Http\Controllers\Api\V1\LocationController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\PaymentController;
+use App\Http\Controllers\Api\V1\PublicBookingController;
+use App\Http\Controllers\Api\V1\RecurringBookingController;
 use App\Http\Controllers\Api\V1\ResourceBlockController;
 use App\Http\Controllers\Api\V1\ResourceController;
 use App\Http\Controllers\Api\V1\ResourceGroupController;
@@ -34,6 +36,16 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
     // query param (not a bearer token) is what proves it's legitimate.
     Route::get('calendar-connections/callback', [CalendarConnectionController::class, 'callback']);
 
+    // §69 "public booking pages": no Sanctum session, no API key --
+    // the unauthenticated surface an external booking widget/page is
+    // built against. Deliberately much smaller than the authenticated
+    // API (no reschedule/cancel/hold/payment) and rate-limited harder
+    // (throttle:public, IP-only) on top of the outer throttle:api.
+    Route::prefix('public')->middleware('throttle:public')->group(function () {
+        Route::get('availability', [AvailabilityController::class, 'index']);
+        Route::post('bookings', [PublicBookingController::class, 'store'])->middleware('idempotent');
+    });
+
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
@@ -43,6 +55,8 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
 
         Route::post('organizations', [OrganizationController::class, 'store'])
             ->middleware('idempotent');
+
+        Route::get('organizations/{organization}/statistics', [OrganizationController::class, 'statistics']);
 
         Route::apiResource('locations', LocationController::class);
 
@@ -118,6 +132,9 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
         Route::post('bookings/{booking}/reschedule', [BookingController::class, 'reschedule'])
             ->middleware('api-key-scope:bookings:write');
         Route::post('bookings/{booking}/payment', [BookingController::class, 'payment'])
+            ->middleware(['idempotent', 'api-key-scope:bookings:write']);
+
+        Route::post('recurring-bookings', [RecurringBookingController::class, 'store'])
             ->middleware(['idempotent', 'api-key-scope:bookings:write']);
     });
 });

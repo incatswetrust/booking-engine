@@ -48,10 +48,10 @@ function actingAsMember(TestCase $test, Organization $organization, Role $role):
  *
  * @return array{0: resource, 1: Service}
  */
-function makeBookableResource(Organization $organization, int $durationMinutes = 60, bool $withOpenSchedule = true): array
+function makeBookableResource(Organization $organization, int $durationMinutes = 60, bool $withOpenSchedule = true, int $capacity = 1): array
 {
     $location = Location::factory()->for($organization)->create(['timezone' => 'UTC']);
-    $resource = Resource::factory()->for($organization)->for($location)->create();
+    $resource = Resource::factory()->for($organization)->for($location)->create(['capacity' => $capacity]);
     $service = Service::factory()->for($organization)->create(['duration_minutes' => $durationMinutes]);
     $service->resources()->attach($resource);
 

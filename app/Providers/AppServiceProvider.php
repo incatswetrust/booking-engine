@@ -131,6 +131,14 @@ class AppServiceProvider extends ServiceProvider
             return $limits;
         });
 
+        // §69: unauthenticated (no Sanctum user, no API key) public
+        // booking endpoints -- IP is the only signal available, so the
+        // limit is deliberately much tighter than the authenticated
+        // "api" limiter to make scraping/spam bookings expensive.
+        RateLimiter::for('public', fn (Request $request) => [
+            Limit::perMinute(20)->by('public-ip:'.$request->ip()),
+        ]);
+
         // §55: "failed jobs" -- fires for every queue connection/job class
         // once it exhausts its own retry budget, not just webhooks/calendar.
         Event::listen(JobFailed::class, fn (JobFailed $event) => Metrics::jobFailed($event->job->resolveName()));

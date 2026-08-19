@@ -23,6 +23,7 @@ class BookingHoldResource extends JsonResource
             'start_at' => $hold->start_at,
             'end_at' => $hold->end_at,
             'expires_at' => $hold->expires_at,
+            'party_size' => $hold->party_size,
         ];
     }
 }

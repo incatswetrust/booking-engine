@@ -16,6 +16,7 @@ use App\Http\Errors\ApiException;
 use App\Http\Errors\ErrorCode;
 use App\Infrastructure\Metrics\Metrics;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Database\QueryException;
@@ -34,6 +35,11 @@ class BookingService
 {
     private const LOCK_WAIT_SECONDS = 5;
 
+    /**
+     * §73: how many nearby free slots to suggest on a 409 conflict.
+     */
+    private const MAX_ALTERNATIVES = 3;
+
     public function __construct(
         private readonly BookingStateMachine $stateMachine,
         private readonly AvailabilityCache $availabilityCache,
@@ -41,6 +47,7 @@ class BookingService
         private readonly OutboxWriter $outboxWriter,
         private readonly AvailabilityService $availability,
         private readonly PaymentService $paymentService,
+        private readonly PricingEngine $pricing,
     ) {}
 
     public function create(
@@ -59,13 +66,17 @@ class BookingService
             $actor, $customer, $resource, $service, $startAt, $endAt, $partySize, $notes, $consumedHold,
         ) {
             $this->assertWithinWorkingHours($resource, $startAt, $endAt);
-            $this->assertSlotIsFree($resource, $startAt, $endAt);
+            $this->assertCapacityAvailable($resource, $service, $startAt, $endAt, $partySize, excludeHoldId: $consumedHold?->id);
             $this->assertNoBlockingBlock($resource, $startAt, $endAt);
-            $this->assertNoConflictingHold($resource, $startAt, $endAt, $consumedHold);
+
+            // §71: computed once, here, from the resource's occupancy
+            // right before this booking is inserted -- never
+            // recalculated afterwards, including on reschedule.
+            $price = $this->pricing->calculate($service, $resource, $startAt, $endAt);
 
             try {
                 $booking = DB::transaction(function () use (
-                    $actor, $customer, $resource, $service, $startAt, $endAt, $partySize, $notes, $consumedHold,
+                    $actor, $customer, $resource, $service, $startAt, $endAt, $partySize, $notes, $consumedHold, $price,
                 ) {
                     $booking = Booking::create([
                         'organization_id' => $resource->organization_id,
@@ -76,10 +87,11 @@ class BookingService
                         'start_at' => $startAt,
                         'end_at' => $endAt,
                         'status' => BookingStatus::Pending,
-                        'price' => $service->price,
+                        'price' => $price,
                         'currency' => $service->currency,
                         'notes' => $notes,
                         'party_size' => $partySize,
+                        'resource_capacity' => $resource->capacity,
                     ]);
 
                     $booking->statusHistory()->create([
@@ -110,7 +122,7 @@ class BookingService
                     return $booking;
                 });
             } catch (QueryException $e) {
-                throw $this->isOverlapViolation($e) ? $this->slotUnavailable($resource, $startAt) : $e;
+                throw $this->isOverlapViolation($e) ? $this->slotUnavailableWithAlternatives($resource, $service, $startAt, $partySize) : $e;
             }
 
             $this->availabilityCache->forgetForResource($resource);
@@ -136,7 +148,7 @@ class BookingService
 
         return $this->withResourceLock($resource, $newStartAt, function () use ($booking, $resource, $newStartAt, $newEndAt) {
             $this->assertWithinWorkingHours($resource, $newStartAt, $newEndAt);
-            $this->assertSlotIsFree($resource, $newStartAt, $newEndAt, excludeBookingId: $booking->id);
+            $this->assertCapacityAvailable($resource, $booking->service, $newStartAt, $newEndAt, $booking->party_size, excludeBookingId: $booking->id);
             $this->assertNoBlockingBlock($resource, $newStartAt, $newEndAt);
 
             $oldStartAt = $booking->start_at;
@@ -152,7 +164,7 @@ class BookingService
                 // recorded without the reschedule (or vice versa).
                 $booking->forceFill(['start_at' => $newStartAt, 'end_at' => $newEndAt])->save();
             } catch (QueryException $e) {
-                throw $this->isOverlapViolation($e) ? $this->slotUnavailable($resource, $newStartAt) : $e;
+                throw $this->isOverlapViolation($e) ? $this->slotUnavailableWithAlternatives($resource, $booking->service, $newStartAt, $booking->party_size) : $e;
             }
 
             DB::transaction(function () use ($booking, $oldStartAt, $oldEndAt, $newStartAt, $newEndAt): void {
@@ -196,12 +208,18 @@ class BookingService
 
     /**
      * Free cancellation if now() is far enough ahead of the booking's
-     * start per the organization's cancellation_notice_minutes setting
-     * (§28).
+     * start per the applicable cancellation_notice_minutes (§28) --
+     * the booking's service can override the organization's default via
+     * its own cancellation_policy.notice_minutes; absent that, the
+     * organization's setting applies, exactly as before.
      */
     public function isWithinFreeCancellationWindow(Booking $booking): bool
     {
-        $noticeMinutes = (int) ($booking->organization->settings['cancellation_notice_minutes'] ?? 0);
+        $noticeMinutes = (int) (
+            $booking->service->cancellation_policy['notice_minutes']
+            ?? $booking->organization->settings['cancellation_notice_minutes']
+            ?? 0
+        );
 
         return now()->diffInMinutes($booking->start_at, false) >= $noticeMinutes;
     }
@@ -241,7 +259,11 @@ class BookingService
         $refundable = $paidSoFar;
 
         if (! $withinFreeWindow) {
-            $refundPercent = (int) ($booking->organization->settings['late_cancellation_refund_percent'] ?? 50);
+            $refundPercent = (int) (
+                $booking->service->cancellation_policy['refund_percent']
+                ?? $booking->organization->settings['late_cancellation_refund_percent']
+                ?? 50
+            );
             $refundable = bcdiv(bcmul($paidSoFar, (string) $refundPercent, 4), '100', 2);
         }
 
@@ -306,40 +328,31 @@ class BookingService
         }
     }
 
-    private function assertSlotIsFree(Resource $resource, CarbonInterface $startAt, CarbonInterface $endAt, ?int $excludeBookingId = null): void
-    {
-        $overlaps = Booking::query()
-            ->where('resource_id', $resource->id)
-            ->whereIn('status', array_map(fn (BookingStatus $s) => $s->value, BookingStatus::active()))
-            ->when($excludeBookingId, fn ($q) => $q->where('id', '!=', $excludeBookingId))
-            ->where('start_at', '<', $endAt)
-            ->where('end_at', '>', $startAt)
-            ->exists();
-
-        if ($overlaps) {
-            throw $this->slotUnavailable($resource, $startAt);
-        }
-    }
-
     /**
-     * A booking must not be created over a slot someone else is actively
-     * holding (§21) — holds and bookings live in separate tables with
-     * separate exclusion constraints, so this is the only thing that
-     * connects them. $consumedHold is excluded since that's the hold this
-     * very booking is converting.
+     * §24: a slot is free as long as adding $partySize on top of every
+     * other overlapping, still-active booking's and non-expired hold's
+     * party_size doesn't exceed the resource's capacity — for a
+     * capacity = 1 resource this reduces to the old binary "is anything
+     * else there at all" check, since any single overlapping row already
+     * uses up the entire capacity. Holds and bookings live in separate
+     * tables (separate exclusion constraints, see the capacity migration),
+     * so both are summed here; $excludeHoldId is the hold this very
+     * booking is converting, $excludeBookingId is this booking's own
+     * current row on a reschedule.
      */
-    private function assertNoConflictingHold(Resource $resource, CarbonInterface $startAt, CarbonInterface $endAt, ?BookingHold $consumedHold): void
-    {
-        $conflicts = BookingHold::query()
-            ->where('resource_id', $resource->id)
-            ->where('expires_at', '>', now())
-            ->when($consumedHold, fn ($q) => $q->where('id', '!=', $consumedHold->id))
-            ->where('start_at', '<', $endAt)
-            ->where('end_at', '>', $startAt)
-            ->exists();
+    private function assertCapacityAvailable(
+        Resource $resource,
+        Service $service,
+        CarbonInterface $startAt,
+        CarbonInterface $endAt,
+        int $partySize,
+        ?int $excludeBookingId = null,
+        ?int $excludeHoldId = null,
+    ): void {
+        $booked = $resource->bookedCapacityBetween($startAt, $endAt, $excludeBookingId, $excludeHoldId);
 
-        if ($conflicts) {
-            throw $this->slotUnavailable($resource, $startAt);
+        if ($booked + $partySize > $resource->capacity) {
+            throw $this->slotUnavailableWithAlternatives($resource, $service, $startAt, $partySize);
         }
     }
 
@@ -381,5 +394,48 @@ class BookingService
                 'start_at' => $startAt->toIso8601String(),
             ],
         );
+    }
+
+    /**
+     * §73: same as slotUnavailable(), plus up to MAX_ALTERNATIVES nearby
+     * free slots on the same (resource-local) day, closest to the
+     * requested time first -- only used where the conflict is genuinely
+     * "this exact slot is taken" (capacity/overlap), not e.g. "the
+     * resource isn't open at all that day", where suggesting same-day
+     * alternatives wouldn't make sense.
+     */
+    private function slotUnavailableWithAlternatives(Resource $resource, Service $service, CarbonInterface $startAt, int $partySize): ApiException
+    {
+        Metrics::bookingConflict();
+
+        return new ApiException(
+            ErrorCode::BookingSlotUnavailable,
+            'The selected booking slot is no longer available.',
+            409,
+            [
+                'resource_id' => $resource->public_id,
+                'start_at' => $startAt->toIso8601String(),
+                'alternatives' => $this->findAlternatives($resource, $service, $startAt, $partySize),
+            ],
+        );
+    }
+
+    /**
+     * @return array<int, array{start: string, end: string}>
+     */
+    private function findAlternatives(Resource $resource, Service $service, CarbonInterface $startAt, int $partySize): array
+    {
+        $timezone = $resource->location?->timezone ?? $resource->organization->timezone;
+        $day = CarbonImmutable::instance($startAt)->setTimezone($timezone);
+
+        $days = $this->availability->forService($service, null, $resource, $day, $day, $timezone, $partySize);
+        $slots = collect($days[0]['slots'] ?? []);
+
+        return $slots
+            ->sortBy(fn (array $slot) => abs(CarbonImmutable::parse($slot['start'])->diffInSeconds($startAt)))
+            ->take(self::MAX_ALTERNATIVES)
+            ->values()
+            ->map(fn (array $slot) => ['start' => $slot['start'], 'end' => $slot['end']])
+            ->all();
     }
 }

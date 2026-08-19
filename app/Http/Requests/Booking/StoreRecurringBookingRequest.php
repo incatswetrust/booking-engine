@@ -1,13 +1,15 @@
 <?php
 
-namespace App\Http\Requests\BookingHold;
+namespace App\Http\Requests\Booking;
 
+use App\Domain\Booking\RecurringBookingStrategy;
 use App\Domain\Resource\Resource;
 use App\Domain\Service\Service;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rules\Enum;
 
-class StoreBookingHoldRequest extends FormRequest
+class StoreRecurringBookingRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -22,8 +24,14 @@ class StoreBookingHoldRequest extends FormRequest
         return [
             'resource_id' => ['required', 'string', 'exists:resources,public_id'],
             'service_id' => ['required', 'string', 'exists:services,public_id'],
-            'start_at' => ['required', 'date', 'after_or_equal:now'],
+            'first_start_at' => ['required', 'date', 'after_or_equal:now'],
+            // §72's example is "8 weeks"; 52 is a generous cap (a year of
+            // weekly occurrences) against accidental/abusive huge series.
+            'occurrences' => ['required', 'integer', 'min:1', 'max:52'],
             'party_size' => ['sometimes', 'integer', 'min:1'],
+            'notes' => ['nullable', 'string'],
+            'strategy' => ['required', new Enum(RecurringBookingStrategy::class)],
+            'customer_id' => ['sometimes', 'string', 'exists:users,public_id'],
         ];
     }
 
@@ -47,10 +55,6 @@ class StoreBookingHoldRequest extends FormRequest
                 $validator->errors()->add('service_id', 'This service is not offered on the given resource.');
             }
 
-            // §24: party_size can never exceed the resource's total
-            // capacity, regardless of what's currently booked -- that's
-            // a slot-availability question, handled separately (409, not
-            // 422) by BookingHoldService::assertCapacityAvailable().
             if ($this->filled('party_size') && (int) $this->input('party_size') > $resource->capacity) {
                 $validator->errors()->add('party_size', "This resource's capacity is {$resource->capacity}.");
             }

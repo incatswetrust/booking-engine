@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Application\Services\BookingService;
 use App\Application\Services\PaymentService;
+use App\Application\Services\ResourceAllocationService;
 use App\Domain\Auth\Permission;
 use App\Domain\Booking\Booking;
 use App\Domain\Booking\BookingHold;
@@ -11,6 +12,7 @@ use App\Domain\Location\Location;
 use App\Domain\Organization\Organization;
 use App\Domain\Payment\Payment;
 use App\Domain\Resource\Resource;
+use App\Domain\Resource\ResourceAllocationStrategy;
 use App\Domain\Service\Service;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\RescheduleBookingRequest;
@@ -34,6 +36,7 @@ class BookingController extends Controller
     public function __construct(
         private readonly BookingService $bookings,
         private readonly PaymentService $payments,
+        private readonly ResourceAllocationService $allocation,
     ) {}
 
     #[OA\Get(
@@ -116,14 +119,12 @@ class BookingController extends Controller
     public function store(StoreBookingRequest $request): JsonResponse
     {
         $actor = $request->user();
-        $resource = Resource::where('public_id', $request->validated('resource_id'))->firstOrFail();
         $service = Service::where('public_id', $request->validated('service_id'))->firstOrFail();
+        $organization = Organization::findOrFail($service->organization_id);
 
         $customer = $actor;
 
         if ($request->filled('customer_id')) {
-            $organization = Organization::findOrFail($resource->organization_id);
-
             if (! $actor->hasPermissionTo(Permission::BookingsCreate, $organization)) {
                 throw new AuthorizationException('You are not allowed to create a booking on behalf of another customer.');
             }
@@ -135,13 +136,42 @@ class BookingController extends Controller
             ? BookingHold::where('public_id', $request->validated('hold_id'))->first()
             : null;
 
+        // A hold already captured the intended party_size (validated to
+        // match, if both were given) -- defaulting to it here means a
+        // client that only ever sent party_size once, at hold time,
+        // still gets a booking with the right party_size.
+        $partySize = (int) $request->validated('party_size', $hold?->party_size ?? 1);
+        $startAt = CarbonImmutable::parse($request->validated('start_at'));
+
+        // §70: no resource_id (and no hold_id, which already pins one) --
+        // let the organization's configured allocation strategy pick one
+        // instead of requiring the client to know which resource is free.
+        if ($request->filled('resource_id')) {
+            $resource = Resource::where('public_id', $request->validated('resource_id'))->firstOrFail();
+        } else {
+            $location = $request->filled('location_id')
+                ? Location::where('public_id', $request->validated('location_id'))->first()
+                : null;
+
+            $strategy = ResourceAllocationStrategy::from($organization->settings['resource_allocation_strategy'] ?? 'first_available');
+
+            $resource = $this->allocation->allocate(
+                $service,
+                $location,
+                $startAt,
+                $startAt->copy()->addMinutes($service->duration_minutes),
+                $partySize,
+                $strategy,
+            );
+        }
+
         $booking = $this->bookings->create(
             $actor,
             $customer,
             $resource,
             $service,
-            CarbonImmutable::parse($request->validated('start_at')),
-            (int) $request->validated('party_size', 1),
+            $startAt,
+            $partySize,
             $request->validated('notes'),
             $hold,
         );
