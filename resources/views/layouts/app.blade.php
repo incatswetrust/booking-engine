@@ -36,7 +36,7 @@
         @yield('content')
     </main>
 
-    <footer class="border-t border-white/[0.06] px-5 py-10 sm:px-8">
+    <footer class="border-t border-[#241249] px-5 py-10 sm:px-8">
         <div class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-xs text-content-muted sm:flex-row">
             <p>Booking Engine API &mdash; MIT Licensed.</p>
             <div class="flex items-center gap-5">

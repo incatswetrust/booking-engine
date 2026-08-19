@@ -2,7 +2,7 @@
 
 @section('content')
 {{-- Hero --}}
-<div class="border-b border-white/[0.06] px-5 pb-16 pt-14 sm:px-8 sm:pt-20">
+<div class="border-b border-[#241249] px-5 pb-16 pt-14 sm:px-8 sm:pt-20">
     <div class="mx-auto max-w-6xl">
         <p class="chip">API Reference</p>
         <h1 class="mt-4 max-w-3xl font-display text-4xl font-bold leading-[1.05] text-content-primary sm:text-5xl">
@@ -56,7 +56,7 @@
                     <div data-nav-group>
                         <a href="#{{ Str::slug($group['name']) }}" class="font-display text-[13px] font-semibold text-content-primary hover:text-gold">{{ $group['name'] }}</a>
                         @if (count($group['endpoints']))
-                            <ul class="mt-1.5 space-y-1 border-l border-white/[0.06] pl-3">
+                            <ul class="mt-1.5 space-y-1 border-l border-[#241249] pl-3">
                                 @foreach ($group['endpoints'] as $endpoint)
                                     <li data-nav-item data-search="{{ strtolower($endpoint['method'].' '.$endpoint['path'].' '.$group['name']) }}">
                                         <a href="#{{ $endpoint['slug'] }}" class="flex items-center gap-2 py-0.5 text-content-muted transition hover:text-content-primary">
@@ -75,7 +75,7 @@
         {{-- Main content --}}
         <div class="mt-12 min-w-0 flex-1 lg:mt-0">
             @foreach ($reference['groups'] as $group)
-                <section id="{{ Str::slug($group['name']) }}" class="scroll-mt-24 border-b border-white/[0.06] py-10 first:pt-0 last:border-0">
+                <section id="{{ Str::slug($group['name']) }}" class="scroll-mt-24 border-b border-[#241249] py-10 first:pt-0 last:border-0">
                     <h2 class="font-display text-2xl font-bold text-content-primary">{{ $group['name'] }}</h2>
 
                     @if (count($group['endpoints']) === 0)

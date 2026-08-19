@@ -6,7 +6,7 @@
     <h1 class="mt-4 font-display text-4xl font-bold text-content-primary sm:text-5xl">Deployment Guide</h1>
     <p class="mt-4 max-w-2xl text-[15px] leading-relaxed text-content-secondary">
         This project ships as a self-contained Docker Compose stack — the same one this API was built and
-        tested against. This guide covers running it locally, what belongs in <code class="rounded bg-white/5 px-1.5 py-0.5 text-content-primary">.env</code>,
+        tested against. This guide covers running it locally, what belongs in <code class="rounded bg-[#24104e] px-1.5 py-0.5 text-content-primary">.env</code>,
         and what to change for a production host.
     </p>
 
@@ -14,8 +14,8 @@
     <section class="mt-14">
         <h2 class="font-display text-2xl font-bold text-content-primary">The stack</h2>
         <p class="mt-3 text-[15px] leading-relaxed text-content-secondary">
-            <code class="rounded bg-white/5 px-1.5 py-0.5">docker-compose.yml</code> defines eight services, all built from the
-            same PHP image (<code class="rounded bg-white/5 px-1.5 py-0.5">docker/php/Dockerfile</code>):
+            <code class="rounded bg-[#24104e] px-1.5 py-0.5">docker-compose.yml</code> defines eight services, all built from the
+            same PHP image (<code class="rounded bg-[#24104e] px-1.5 py-0.5">docker/php/Dockerfile</code>):
         </p>
 
         <div class="mt-6 grid gap-4 sm:grid-cols-2">
@@ -41,9 +41,9 @@
     <section class="mt-14">
         <h2 class="font-display text-2xl font-bold text-content-primary">Quick start (local / self-hosted)</h2>
         <p class="mt-3 text-[15px] leading-relaxed text-content-secondary">
-            The container entrypoint (<code class="rounded bg-white/5 px-1.5 py-0.5">docker/php/entrypoint.sh</code>) installs
-            Composer dependencies, copies <code class="rounded bg-white/5 px-1.5 py-0.5">.env.example</code> to
-            <code class="rounded bg-white/5 px-1.5 py-0.5">.env</code> and generates <code class="rounded bg-white/5 px-1.5 py-0.5">APP_KEY</code>
+            The container entrypoint (<code class="rounded bg-[#24104e] px-1.5 py-0.5">docker/php/entrypoint.sh</code>) installs
+            Composer dependencies, copies <code class="rounded bg-[#24104e] px-1.5 py-0.5">.env.example</code> to
+            <code class="rounded bg-[#24104e] px-1.5 py-0.5">.env</code> and generates <code class="rounded bg-[#24104e] px-1.5 py-0.5">APP_KEY</code>
             automatically the first time it runs — there is no manual setup step for a first boot.
         </p>
 
@@ -52,15 +52,15 @@ cd booking-engine
 docker compose up --build</pre>
 
         <p class="mt-4 text-[15px] leading-relaxed text-content-secondary">
-            Once the stack is healthy, the API is reachable at <code class="rounded bg-white/5 px-1.5 py-0.5">http://localhost:8000</code>
-            (or whatever <code class="rounded bg-white/5 px-1.5 py-0.5">APP_PORT</code> you set). Verify with:
+            Once the stack is healthy, the API is reachable at <code class="rounded bg-[#24104e] px-1.5 py-0.5">http://localhost:8000</code>
+            (or whatever <code class="rounded bg-[#24104e] px-1.5 py-0.5">APP_PORT</code> you set). Verify with:
         </p>
 
         <pre class="code-block mt-4 p-5">curl http://localhost:8000/health</pre>
 
         <p class="mt-4 text-[15px] leading-relaxed text-content-secondary">
             If you want real values before the first boot (e.g. to skip re-entering Stripe/Google credentials later),
-            copy <code class="rounded bg-white/5 px-1.5 py-0.5">.env.example</code> to <code class="rounded bg-white/5 px-1.5 py-0.5">.env</code>
+            copy <code class="rounded bg-[#24104e] px-1.5 py-0.5">.env.example</code> to <code class="rounded bg-[#24104e] px-1.5 py-0.5">.env</code>
             yourself first and edit it — the entrypoint only creates it when it's missing, it never overwrites an existing one.
         </p>
     </section>
@@ -69,7 +69,7 @@ docker compose up --build</pre>
     <section class="mt-14">
         <h2 class="font-display text-2xl font-bold text-content-primary">Environment variables</h2>
         <p class="mt-3 text-[15px] leading-relaxed text-content-secondary">
-            Everything below lives in <code class="rounded bg-white/5 px-1.5 py-0.5">.env.example</code>. Groups marked
+            Everything below lives in <code class="rounded bg-[#24104e] px-1.5 py-0.5">.env.example</code>. Groups marked
             <span class="chip !py-0.5">required for production</span> must have real values before you expose the stack publicly;
             everything else has a safe local default.
         </p>
@@ -164,7 +164,7 @@ docker compose up --build</pre>
                 <div class="surface-card mt-3 overflow-x-auto">
                     <table class="w-full min-w-[640px] text-left text-[13px]">
                         <thead>
-                            <tr class="border-b border-white/[0.06] text-content-muted">
+                            <tr class="border-b border-[#241249] text-content-muted">
                                 <th class="px-5 py-3 font-medium">Variable</th>
                                 <th class="px-5 py-3 font-medium">Default</th>
                                 <th class="px-5 py-3 font-medium">Notes</th>
@@ -172,7 +172,7 @@ docker compose up --build</pre>
                         </thead>
                         <tbody>
                             @foreach ($group['rows'] as [$var, $default, $note])
-                                <tr class="table-row border-b border-white/[0.04] last:border-0">
+                                <tr class="table-row border-b border-[#1d0e3c] last:border-0">
                                     <td class="px-5 py-3 font-mono text-[12.5px] text-gold">{{ $var }}</td>
                                     <td class="px-5 py-3 font-mono text-[12.5px] text-content-secondary">{{ $default }}</td>
                                     <td class="px-5 py-3 text-content-secondary">{{ $note }}</td>
@@ -189,12 +189,12 @@ docker compose up --build</pre>
     <section class="mt-14">
         <h2 class="font-display text-2xl font-bold text-content-primary">Going to production</h2>
         <ul class="mt-4 space-y-3 text-[15px] leading-relaxed text-content-secondary">
-            <li class="flex gap-3"><span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-pink"></span><span><code class="rounded bg-white/5 px-1.5 py-0.5">APP_ENV=production</code>, <code class="rounded bg-white/5 px-1.5 py-0.5">APP_DEBUG=false</code>, and a real, never-committed <code class="rounded bg-white/5 px-1.5 py-0.5">APP_KEY</code>.</span></li>
-            <li class="flex gap-3"><span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-pink"></span><span>Put a TLS-terminating reverse proxy (or a managed load balancer) in front of the <code class="rounded bg-white/5 px-1.5 py-0.5">nginx</code> service — it only serves plain HTTP itself.</span></li>
-            <li class="flex gap-3"><span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-pink"></span><span>Back up the <code class="rounded bg-white/5 px-1.5 py-0.5">pgsql-data</code> volume (or point <code class="rounded bg-white/5 px-1.5 py-0.5">DB_HOST</code> at a managed Postgres with its own backups) — it's the only service holding durable state besides Redis.</span></li>
+            <li class="flex gap-3"><span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-pink"></span><span><code class="rounded bg-[#24104e] px-1.5 py-0.5">APP_ENV=production</code>, <code class="rounded bg-[#24104e] px-1.5 py-0.5">APP_DEBUG=false</code>, and a real, never-committed <code class="rounded bg-[#24104e] px-1.5 py-0.5">APP_KEY</code>.</span></li>
+            <li class="flex gap-3"><span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-pink"></span><span>Put a TLS-terminating reverse proxy (or a managed load balancer) in front of the <code class="rounded bg-[#24104e] px-1.5 py-0.5">nginx</code> service — it only serves plain HTTP itself.</span></li>
+            <li class="flex gap-3"><span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-pink"></span><span>Back up the <code class="rounded bg-[#24104e] px-1.5 py-0.5">pgsql-data</code> volume (or point <code class="rounded bg-[#24104e] px-1.5 py-0.5">DB_HOST</code> at a managed Postgres with its own backups) — it's the only service holding durable state besides Redis.</span></li>
             <li class="flex gap-3"><span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-pink"></span><span>Redis persistence matters too: the transactional outbox depends on jobs actually running, and losing in-flight queue state mid-deploy can delay (not lose — outbox rows are the source of truth) webhook/notification delivery.</span></li>
-            <li class="flex gap-3"><span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-pink"></span><span>Scale <code class="rounded bg-white/5 px-1.5 py-0.5">horizon</code> and <code class="rounded bg-white/5 px-1.5 py-0.5">app</code>/<code class="rounded bg-white/5 px-1.5 py-0.5">nginx</code> independently — Horizon's supervisor config in <code class="rounded bg-white/5 px-1.5 py-0.5">config/horizon.php</code> already balances workers across the <code class="rounded bg-white/5 px-1.5 py-0.5">default/outbox/payments/notifications/webhooks/calendar</code> queues.</span></li>
-            <li class="flex gap-3"><span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-pink"></span><span>Point your orchestrator's health/readiness probes at <code class="rounded bg-white/5 px-1.5 py-0.5">GET /health/live</code> (process is up) and <code class="rounded bg-white/5 px-1.5 py-0.5">GET /health/ready</code> (checks Postgres + Redis connectivity).</span></li>
+            <li class="flex gap-3"><span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-pink"></span><span>Scale <code class="rounded bg-[#24104e] px-1.5 py-0.5">horizon</code> and <code class="rounded bg-[#24104e] px-1.5 py-0.5">app</code>/<code class="rounded bg-[#24104e] px-1.5 py-0.5">nginx</code> independently — Horizon's supervisor config in <code class="rounded bg-[#24104e] px-1.5 py-0.5">config/horizon.php</code> already balances workers across the <code class="rounded bg-[#24104e] px-1.5 py-0.5">default/outbox/payments/notifications/webhooks/calendar</code> queues.</span></li>
+            <li class="flex gap-3"><span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-pink"></span><span>Point your orchestrator's health/readiness probes at <code class="rounded bg-[#24104e] px-1.5 py-0.5">GET /health/live</code> (process is up) and <code class="rounded bg-[#24104e] px-1.5 py-0.5">GET /health/ready</code> (checks Postgres + Redis connectivity).</span></li>
         </ul>
     </section>
 </div>
