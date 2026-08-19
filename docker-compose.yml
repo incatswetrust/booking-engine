@@ -15,8 +15,31 @@ x-app-image: &app-image
       condition: service_healthy
     redis:
       condition: service_healthy
+    migrate:
+      condition: service_completed_successfully
 
 services:
+  # One-shot: runs the schema up to date, then exits. app/horizon/scheduler/
+  # outbox all wait on it via service_completed_successfully instead of each
+  # migrating themselves — they share this same image/entrypoint, and having
+  # all four run `migrate` concurrently on a fresh `docker-compose up` would
+  # race (and outbox/horizon/scheduler would otherwise start querying tables
+  # that don't exist yet). This is what makes a bare `docker-compose up`
+  # produce a fully working stack (§74 DoD) with no manual migration step.
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    image: booking-engine/app:local
+    container_name: booking-engine-migrate
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+    command: ["php", "artisan", "migrate", "--force"]
+    depends_on:
+      pgsql:
+        condition: service_healthy
+
   app:
     <<: *app-image
     container_name: booking-engine-app
