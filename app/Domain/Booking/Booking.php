@@ -35,6 +35,7 @@ class Booking extends Model
         'notes',
         'party_size',
         'cancelled_at',
+        'external_calendar_event_id',
     ];
 
     protected $casts = [

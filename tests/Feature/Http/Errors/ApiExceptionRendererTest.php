@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Testing\TestResponse;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 function renderException(Throwable $e): TestResponse
 {
@@ -67,4 +68,27 @@ it('falls back to 500 INTERNAL_ERROR for unmapped exceptions', function () {
     renderException(new RuntimeException('boom'))
         ->assertStatus(500)
         ->assertJsonPath('error.code', 'INTERNAL_ERROR');
+});
+
+it('preserves headers like Retry-After from the original exception', function () {
+    $exception = new TooManyRequestsHttpException(30, 'Too many requests.');
+
+    renderException($exception)
+        ->assertStatus(429)
+        ->assertHeader('Retry-After', '30');
+});
+
+/**
+ * Full HTTP-level (not renderException()-direct) on purpose: this bug
+ * lived in Illuminate\Auth\Middleware\Authenticate itself, not the
+ * renderer -- it resolves its redirect target *while constructing* the
+ * AuthenticationException whenever the request's Accept header isn't
+ * exactly application/json, which threw RouteNotFoundException (this
+ * app has no "login" route, being API-only) and masked the real 401 as
+ * a 500. Found live-testing a plain curl request with no Accept header.
+ */
+it('returns a clean 401 for an unauthenticated request with no Accept header, not a 500', function () {
+    $this->get('/api/v1/me')
+        ->assertStatus(401)
+        ->assertJsonPath('error.code', 'AUTHENTICATION_REQUIRED');
 });

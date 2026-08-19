@@ -2,6 +2,7 @@
 
 namespace App\Domain\Resource;
 
+use App\Domain\Calendar\CalendarConnection;
 use App\Domain\Concerns\Auditable;
 use App\Domain\Concerns\HasPublicId;
 use App\Domain\Location\Location;
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Resource extends Model
 {
@@ -102,5 +104,17 @@ class Resource extends Model
     public function blocks(): HasMany
     {
         return $this->hasMany(ResourceBlock::class);
+    }
+
+    /**
+     * §36: at most one connection per (resource, provider) is enforced
+     * at the DB level; Google is the only implemented provider today,
+     * so this resolves to "the" connection in practice.
+     *
+     * @return HasOne<CalendarConnection, $this>
+     */
+    public function calendarConnection(): HasOne
+    {
+        return $this->hasOne(CalendarConnection::class);
     }
 }

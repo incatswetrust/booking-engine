@@ -2,6 +2,7 @@
 
 namespace App\Domain\Organization;
 
+use App\Domain\ApiKey\ApiKey;
 use App\Domain\Auth\Role;
 use App\Domain\Concerns\Auditable;
 use App\Domain\Concerns\HasPublicId;
@@ -9,6 +10,7 @@ use App\Domain\Location\Location;
 use App\Domain\Resource\Resource;
 use App\Domain\Resource\ResourceGroup;
 use App\Domain\Service\Service;
+use App\Domain\Webhook\WebhookEndpoint;
 use App\Models\User;
 use Database\Factories\OrganizationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -118,5 +120,21 @@ class Organization extends Model
     public function services(): HasMany
     {
         return $this->hasMany(Service::class);
+    }
+
+    /**
+     * @return HasMany<ApiKey, $this>
+     */
+    public function apiKeys(): HasMany
+    {
+        return $this->hasMany(ApiKey::class);
+    }
+
+    /**
+     * @return HasMany<WebhookEndpoint, $this>
+     */
+    public function webhookEndpoints(): HasMany
+    {
+        return $this->hasMany(WebhookEndpoint::class);
     }
 }

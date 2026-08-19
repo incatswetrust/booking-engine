@@ -56,4 +56,20 @@ class Payment extends Model
     {
         return $this->belongsTo(Booking::class);
     }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function toOutboxPayload(): array
+    {
+        return [
+            'payment_id' => $this->public_id,
+            'booking_id' => $this->booking->public_id,
+            'organization_id' => $this->booking->organization->public_id,
+            'amount' => (float) $this->amount,
+            'currency' => $this->currency,
+            'status' => $this->status->value,
+            'paid_at' => $this->paid_at?->toIso8601String(),
+        ];
+    }
 }

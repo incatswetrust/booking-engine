@@ -57,12 +57,18 @@ class ApiExceptionRenderer
             ],
         };
 
+        // Preserves headers like Retry-After (TooManyRequestsHttpException,
+        // §46) or Allow (MethodNotAllowedHttpException) that Symfony's
+        // HttpExceptionInterface exceptions carry -- building a fresh
+        // response() here would otherwise silently drop them.
+        $headers = $e instanceof HttpExceptionInterface ? $e->getHeaders() : [];
+
         return response()->json([
             'error' => array_filter([
                 'code' => $code->value,
                 'message' => $message,
                 'details' => $details !== [] ? $details : null,
             ], static fn ($value) => $value !== null),
-        ], $status);
+        ], $status, $headers);
     }
 }

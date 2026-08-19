@@ -3,6 +3,8 @@
 namespace App\Domain\Payment;
 
 use App\Application\Services\AuditLogger;
+use App\Application\Services\OutboxWriter;
+use App\Domain\Payment\Events\PaymentCompleted;
 use App\Http\Errors\ApiException;
 use App\Http\Errors\ErrorCode;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +32,10 @@ class PaymentStateMachine
         'refunded' => [],
     ];
 
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly OutboxWriter $outboxWriter,
+    ) {}
 
     public static function canTransition(PaymentStatus $from, PaymentStatus $to): bool
     {
@@ -62,6 +67,13 @@ class PaymentStateMachine
                 ['status' => $from->value],
                 array_merge($extra, ['status' => $to->value]),
             );
+
+            // §41: payment.completed is the only payment-side webhook
+            // subscription -- only "paid" fires it, not authorized/failed/
+            // refunded/partially_refunded.
+            if ($to === PaymentStatus::Paid) {
+                $this->outboxWriter->record(class_basename(PaymentCompleted::class), $payment, $payment->toOutboxPayload());
+            }
         });
 
         return $payment;

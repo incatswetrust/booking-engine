@@ -8,6 +8,7 @@ use App\Domain\Booking\Events\BookingCreated;
 use App\Domain\Booking\Events\BookingRescheduled;
 use App\Domain\Outbox\OutboxMessage;
 use App\Domain\Outbox\OutboxStatus;
+use App\Domain\Payment\Events\PaymentCompleted;
 use App\Domain\Payment\Events\StripeWebhookReceived;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -46,6 +47,7 @@ class ProcessOutboxEvent implements ShouldQueue
         'BookingCancelled' => BookingCancelled::class,
         'BookingRescheduled' => BookingRescheduled::class,
         'StripeWebhookReceived' => StripeWebhookReceived::class,
+        'PaymentCompleted' => PaymentCompleted::class,
     ];
 
     public function __construct(public readonly int $outboxMessageId) {}

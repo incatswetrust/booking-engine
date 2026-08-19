@@ -44,4 +44,10 @@ return [
         'bot_token' => env('TELEGRAM_BOT_TOKEN'),
     ],
 
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect_uri' => env('GOOGLE_CALENDAR_REDIRECT_URI'),
+    ],
+
 ];
