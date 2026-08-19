@@ -7,6 +7,8 @@ use App\Domain\Organization\Organization;
 use App\Domain\Resource\ResourceBlock;
 use App\Domain\Service\Service;
 use App\Models\User;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 it('creates a booking directly and confirms it immediately (no payment in MVP)', function () {
     $organization = Organization::factory()->create();
@@ -27,6 +29,27 @@ it('creates a booking directly and confirms it immediately (no payment in MVP)',
     $booking = Booking::first();
     expect($booking->statusHistory()->count())->toBe(2);
     expect($booking->statusHistory()->pluck('to_status')->all())->toBe(['pending', 'confirmed']);
+});
+
+it('stores a non-UTC start_at converted to UTC, not with the offset dropped (§18)', function () {
+    $organization = Organization::factory()->create();
+    [$resource, $service] = makeBookableResource($organization, 60);
+    $customer = User::factory()->create();
+
+    // 09:00+03:00 is 06:00 UTC. If the +03:00 offset gets silently
+    // dropped instead of converted, this would wrongly persist as
+    // 09:00 UTC.
+    $localStart = now()->addDay()->setTime(9, 0)->setTimezone('Europe/Bucharest');
+
+    $this->actingAs($customer, 'sanctum')->postJson('/api/v1/bookings', [
+        'resource_id' => $resource->public_id,
+        'service_id' => $service->public_id,
+        'start_at' => $localStart->toIso8601String(),
+    ])->assertCreated();
+
+    $rawStartAt = DB::table('bookings')->value('start_at');
+
+    expect(Carbon::parse($rawStartAt, 'UTC')->equalTo($localStart))->toBeTrue();
 });
 
 it('rejects a booking that overlaps an existing active booking', function () {

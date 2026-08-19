@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Application\Services\AvailabilityCache;
 use App\Application\Services\BookingHoldService;
 use App\Domain\Booking\BookingHold;
 use App\Domain\Resource\Resource;
@@ -18,7 +19,10 @@ use OpenApi\Attributes as OA;
 #[OA\Tag(name: 'Booking Holds')]
 class BookingHoldController extends Controller
 {
-    public function __construct(private readonly BookingHoldService $holds) {}
+    public function __construct(
+        private readonly BookingHoldService $holds,
+        private readonly AvailabilityCache $availabilityCache,
+    ) {}
 
     #[OA\Post(
         path: '/api/v1/booking-holds',
@@ -59,6 +63,8 @@ class BookingHoldController extends Controller
         }
 
         $bookingHold->delete();
+
+        $this->availabilityCache->forgetForResource($bookingHold->resource);
 
         return response()->noContent();
     }

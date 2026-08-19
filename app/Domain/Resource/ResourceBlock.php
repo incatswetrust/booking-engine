@@ -2,6 +2,7 @@
 
 namespace App\Domain\Resource;
 
+use App\Domain\Concerns\AsUtcDateTime;
 use App\Domain\Concerns\HasPublicId;
 use Database\Factories\ResourceBlockFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -22,8 +23,8 @@ class ResourceBlock extends Model
     ];
 
     protected $casts = [
-        'starts_at' => 'datetime',
-        'ends_at' => 'datetime',
+        'starts_at' => AsUtcDateTime::class,
+        'ends_at' => AsUtcDateTime::class,
         'reason' => ResourceBlockReason::class,
     ];
 

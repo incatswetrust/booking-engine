@@ -2,6 +2,7 @@
 
 namespace App\Domain\Booking;
 
+use App\Domain\Concerns\AsUtcDateTime;
 use App\Domain\Concerns\HasPublicId;
 use App\Domain\Resource\Resource;
 use App\Domain\Service\Service;
@@ -26,9 +27,9 @@ class BookingHold extends Model
     ];
 
     protected $casts = [
-        'start_at' => 'datetime',
-        'end_at' => 'datetime',
-        'expires_at' => 'datetime',
+        'start_at' => AsUtcDateTime::class,
+        'end_at' => AsUtcDateTime::class,
+        'expires_at' => AsUtcDateTime::class,
     ];
 
     public static function publicIdPrefix(): string
