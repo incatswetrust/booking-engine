@@ -208,12 +208,18 @@ class BookingService
 
     /**
      * Free cancellation if now() is far enough ahead of the booking's
-     * start per the organization's cancellation_notice_minutes setting
-     * (§28).
+     * start per the applicable cancellation_notice_minutes (§28) --
+     * the booking's service can override the organization's default via
+     * its own cancellation_policy.notice_minutes; absent that, the
+     * organization's setting applies, exactly as before.
      */
     public function isWithinFreeCancellationWindow(Booking $booking): bool
     {
-        $noticeMinutes = (int) ($booking->organization->settings['cancellation_notice_minutes'] ?? 0);
+        $noticeMinutes = (int) (
+            $booking->service->cancellation_policy['notice_minutes']
+            ?? $booking->organization->settings['cancellation_notice_minutes']
+            ?? 0
+        );
 
         return now()->diffInMinutes($booking->start_at, false) >= $noticeMinutes;
     }
@@ -253,7 +259,11 @@ class BookingService
         $refundable = $paidSoFar;
 
         if (! $withinFreeWindow) {
-            $refundPercent = (int) ($booking->organization->settings['late_cancellation_refund_percent'] ?? 50);
+            $refundPercent = (int) (
+                $booking->service->cancellation_policy['refund_percent']
+                ?? $booking->organization->settings['late_cancellation_refund_percent']
+                ?? 50
+            );
             $refundable = bcdiv(bcmul($paidSoFar, (string) $refundPercent, 4), '100', 2);
         }
 

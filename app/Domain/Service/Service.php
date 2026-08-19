@@ -27,6 +27,7 @@ class Service extends Model
         'price',
         'currency',
         'pricing_rules',
+        'cancellation_policy',
         'status',
         'payment_mode',
         'deposit_amount',
@@ -38,6 +39,7 @@ class Service extends Model
         'buffer_after_minutes' => 'integer',
         'price' => 'decimal:2',
         'pricing_rules' => 'array',
+        'cancellation_policy' => 'array',
         'payment_mode' => PaymentMode::class,
         'deposit_amount' => 'decimal:2',
     ];
