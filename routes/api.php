@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\BookingHoldController;
 use App\Http\Controllers\Api\V1\LocationController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\ResourceBlockController;
@@ -43,5 +44,9 @@ Route::prefix('v1')->group(function () {
 
         Route::apiResource('resource-blocks', ResourceBlockController::class)
             ->only(['index', 'store', 'destroy']);
+
+        Route::post('booking-holds', [BookingHoldController::class, 'store'])
+            ->middleware('idempotent');
+        Route::delete('booking-holds/{bookingHold}', [BookingHoldController::class, 'destroy']);
     });
 });
