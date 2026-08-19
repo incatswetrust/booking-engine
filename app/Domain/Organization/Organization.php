@@ -52,6 +52,7 @@ class Organization extends Model
             'booking_max_days_ahead' => 90,
             'cancellation_notice_minutes' => 1440,
             'default_booking_duration' => 60,
+            'payment_timeout_minutes' => 30,
         ];
     }
 

@@ -27,6 +27,8 @@ class Service extends Model
         'price',
         'currency',
         'status',
+        'payment_mode',
+        'deposit_amount',
     ];
 
     protected $casts = [
@@ -34,7 +36,24 @@ class Service extends Model
         'buffer_before_minutes' => 'integer',
         'buffer_after_minutes' => 'integer',
         'price' => 'decimal:2',
+        'payment_mode' => PaymentMode::class,
+        'deposit_amount' => 'decimal:2',
     ];
+
+    /**
+     * The amount a booking for this service must pay up front to
+     * confirm (§30, §31) -- the full price for "full", the configured
+     * deposit for "deposit". Callers should only call this when
+     * payment_mode->blocksConfirmation() is true.
+     */
+    public function amountDueUpFront(): string
+    {
+        return match ($this->payment_mode) {
+            PaymentMode::Full => (string) $this->price,
+            PaymentMode::Deposit => (string) $this->deposit_amount,
+            default => '0.00',
+        };
+    }
 
     public static function publicIdPrefix(): string
     {
