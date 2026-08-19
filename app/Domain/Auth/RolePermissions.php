@@ -33,6 +33,7 @@ class RolePermissions
                 Permission::BookingsUpdate,
                 Permission::BookingsCancel,
                 Permission::PaymentsRead,
+                Permission::PaymentsManage,
                 Permission::IntegrationsManage,
                 Permission::UsersManage,
             ],
@@ -45,6 +46,8 @@ class RolePermissions
                 Permission::BookingsCreate,
                 Permission::BookingsUpdate,
                 Permission::BookingsCancel,
+                Permission::PaymentsRead,
+                Permission::PaymentsManage,
             ],
 
             Role::Staff => [

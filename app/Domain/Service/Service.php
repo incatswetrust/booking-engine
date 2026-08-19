@@ -41,18 +41,17 @@ class Service extends Model
     ];
 
     /**
-     * The amount a booking for this service must pay up front to
-     * confirm (§30, §31) -- the full price for "full", the configured
-     * deposit for "deposit". Callers should only call this when
-     * payment_mode->blocksConfirmation() is true.
+     * The amount a Payment should be created for (§30) — the configured
+     * deposit for "deposit" mode, otherwise the booking's own (already
+     * snapshotted) price, which "full" and "pay_after" both owe in full,
+     * just at different points in the booking lifecycle. Only meaningful
+     * when payment_mode->requiresPayment() is true.
      */
-    public function amountDueUpFront(): string
+    public function amountOwed(string $bookingPrice): string
     {
-        return match ($this->payment_mode) {
-            PaymentMode::Full => (string) $this->price,
-            PaymentMode::Deposit => (string) $this->deposit_amount,
-            default => '0.00',
-        };
+        return $this->payment_mode === PaymentMode::Deposit
+            ? (string) $this->deposit_amount
+            : $bookingPrice;
     }
 
     public static function publicIdPrefix(): string

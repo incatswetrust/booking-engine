@@ -8,6 +8,7 @@ use App\Domain\Booking\BookingStateMachine;
 use App\Domain\Booking\BookingStatus;
 use App\Domain\Booking\Events\BookingCreated;
 use App\Domain\Booking\Events\BookingRescheduled;
+use App\Domain\Payment\PaymentStatus;
 use App\Domain\Resource\Resource;
 use App\Domain\Resource\ResourceBlock;
 use App\Domain\Service\Service;
@@ -19,6 +20,8 @@ use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Booking creation and rescheduling follow the same lock-then-recheck
@@ -36,6 +39,7 @@ class BookingService
         private readonly AuditLogger $auditLogger,
         private readonly OutboxWriter $outboxWriter,
         private readonly AvailabilityService $availability,
+        private readonly PaymentService $paymentService,
     ) {}
 
     public function create(
@@ -86,12 +90,19 @@ class BookingService
                     $this->auditLogger->log('booking.created', $booking, null, $booking->toArray());
                     $this->outboxWriter->record(class_basename(BookingCreated::class), $booking, $booking->toOutboxPayload());
 
-                    // MVP ships without Stripe (§66): every booking is
-                    // effectively "no payment required" for now, so it
-                    // confirms immediately instead of parking in
-                    // awaiting_payment. Phase 2 payments will insert a real
-                    // awaiting_payment step ahead of this transition.
-                    $this->stateMachine->transition($booking, BookingStatus::Confirmed, $actor);
+                    // §30/§31: full/deposit block confirmation until paid --
+                    // the booking parks in awaiting_payment and the caller
+                    // is expected to call POST /bookings/{id}/payment next
+                    // (mirrors the existing hold -> booking two-step flow)
+                    // to actually get a Stripe PaymentIntent. none/pay_after
+                    // confirm immediately, same as MVP always did; pay_after
+                    // just means the payment itself is collected later,
+                    // through that same endpoint, whenever staff choose to.
+                    $this->stateMachine->transition(
+                        $booking,
+                        $service->payment_mode->blocksConfirmation() ? BookingStatus::AwaitingPayment : BookingStatus::Confirmed,
+                        $actor,
+                    );
 
                     $consumedHold?->delete();
 
@@ -169,7 +180,11 @@ class BookingService
             throw new ApiException(ErrorCode::BookingAlreadyCancelled, 'This booking is already cancelled.', 409);
         }
 
+        $withinFreeWindow = $this->isWithinFreeCancellationWindow($booking);
+
         $booking = $this->stateMachine->transition($booking, BookingStatus::Cancelled, $actor);
+
+        $this->refundOnCancellation($booking, $withinFreeWindow);
 
         $this->availabilityCache->forgetForResource($booking->resource);
 
@@ -179,15 +194,67 @@ class BookingService
     /**
      * Free cancellation if now() is far enough ahead of the booking's
      * start per the organization's cancellation_notice_minutes setting
-     * (§28). No payments exist yet to actually apply a late-cancellation
-     * charge, so this only reports whether the window was missed —
-     * Phase 2 payments will act on it.
+     * (§28).
      */
     public function isWithinFreeCancellationWindow(Booking $booking): bool
     {
         $noticeMinutes = (int) ($booking->organization->settings['cancellation_notice_minutes'] ?? 0);
 
         return now()->diffInMinutes($booking->start_at, false) >= $noticeMinutes;
+    }
+
+    /**
+     * §28's cancellation policy example ("free within 24h, otherwise 50%
+     * charge") only bites once there's an actual payment to apply it to.
+     * A free-window cancellation refunds whatever's left in full; a late
+     * cancellation refunds only up to
+     * organization.settings.late_cancellation_refund_percent (default
+     * 50) of what was actually paid, keeping the rest as the charge. A
+     * booking with no paid payment (none/pay_after, or payment still
+     * pending/failed) has nothing to refund.
+     *
+     * A refund failure (e.g. Stripe is down) must never fail the cancel
+     * request itself — the booking is already cancelled by the time this
+     * runs. It's logged instead; the payment stays paid/partially
+     * refunded for staff to retry via POST /payments/{id}/refund.
+     */
+    private function refundOnCancellation(Booking $booking, bool $withinFreeWindow): void
+    {
+        $payment = $booking->payments()
+            ->whereIn('status', [PaymentStatus::Paid, PaymentStatus::PartiallyRefunded])
+            ->latest()
+            ->first();
+
+        if ($payment === null) {
+            return;
+        }
+
+        $paidSoFar = bcsub((string) $payment->amount, (string) $payment->amount_refunded, 2);
+
+        if (bccomp($paidSoFar, '0.00', 2) <= 0) {
+            return;
+        }
+
+        $refundable = $paidSoFar;
+
+        if (! $withinFreeWindow) {
+            $refundPercent = (int) ($booking->organization->settings['late_cancellation_refund_percent'] ?? 50);
+            $refundable = bcdiv(bcmul($paidSoFar, (string) $refundPercent, 4), '100', 2);
+        }
+
+        if (bccomp($refundable, '0.00', 2) <= 0) {
+            return;
+        }
+
+        try {
+            $this->paymentService->refund($payment, $refundable);
+        } catch (Throwable $e) {
+            Log::error('Automatic refund on cancellation failed', [
+                'booking_id' => $booking->public_id,
+                'payment_id' => $payment->public_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public function confirm(User $actor, Booking $booking): Booking

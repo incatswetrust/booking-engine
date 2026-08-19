@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\BookingController;
 use App\Http\Controllers\Api\V1\BookingHoldController;
 use App\Http\Controllers\Api\V1\LocationController;
 use App\Http\Controllers\Api\V1\OrganizationController;
+use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\ResourceBlockController;
 use App\Http\Controllers\Api\V1\ResourceController;
 use App\Http\Controllers\Api\V1\ResourceGroupController;
@@ -64,5 +65,13 @@ Route::prefix('v1')->group(function () {
         Route::post('bookings/{booking}/complete', [BookingController::class, 'complete']);
         Route::post('bookings/{booking}/cancel', [BookingController::class, 'cancel']);
         Route::post('bookings/{booking}/reschedule', [BookingController::class, 'reschedule']);
+
+        Route::post('bookings/{booking}/payment', [BookingController::class, 'payment'])
+            ->middleware('idempotent');
+
+        Route::get('payments', [PaymentController::class, 'index']);
+        Route::get('payments/{payment}', [PaymentController::class, 'show']);
+        Route::post('payments/{payment}/refund', [PaymentController::class, 'refund'])
+            ->middleware('idempotent');
     });
 });
