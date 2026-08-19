@@ -4,8 +4,10 @@ use App\Http\Controllers\HealthController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
-});
+    return view('home', ['reference' => require resource_path('data/api-reference.php')]);
+})->name('home');
+
+Route::view('/deployment', 'deployment')->name('deployment');
 
 Route::get('/health', [HealthController::class, 'health']);
 Route::get('/health/live', [HealthController::class, 'live']);

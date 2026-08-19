@@ -8,6 +8,8 @@ RUN apk add --no-cache \
         icu-dev \
         oniguruma-dev \
         libzip-dev \
+        nodejs \
+        npm \
     && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
     && docker-php-ext-configure intl \
     && docker-php-ext-install -j"$(nproc)" \
