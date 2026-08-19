@@ -5,6 +5,7 @@ namespace App\Application\Services;
 use App\Domain\Booking\Booking;
 use App\Domain\Booking\BookingHold;
 use App\Domain\Booking\BookingStatus;
+use App\Domain\Calendar\CalendarConnectionStatus;
 use App\Domain\Location\Location;
 use App\Domain\Resource\Resource;
 use App\Domain\Schedule\ScheduleExceptionType;
@@ -142,7 +143,8 @@ class AvailabilityService
         ])->concat($holds->map(fn ($h) => [
             $h->start_at->subMinutes($h->service->buffer_before_minutes),
             $h->end_at->addMinutes($h->service->buffer_after_minutes),
-        ]))->concat($blocks->map(fn ($b) => [$b->starts_at, $b->ends_at]));
+        ]))->concat($blocks->map(fn ($b) => [$b->starts_at, $b->ends_at]))
+            ->concat($this->calendarBusyPeriods($resource, $rangeStart, $rangeEnd));
 
         $minStart = now()->addMinutes((int) ($resource->organization->settings['booking_min_notice_minutes'] ?? 0));
 
@@ -173,6 +175,33 @@ class AvailabilityService
         }
 
         return $result;
+    }
+
+    /**
+     * §37: busy periods on the resource's connected external calendar
+     * (§36) count as occupied the same as an internal booking, using
+     * whatever RefreshCalendarBusyPeriods last cached on the
+     * connection (§62 refreshes this every 5 minutes) -- this never
+     * calls the provider directly on the request path.
+     *
+     * @return array<int, array{0: CarbonInterface, 1: CarbonInterface}>
+     */
+    private function calendarBusyPeriods(Resource $resource, CarbonInterface $rangeStart, CarbonInterface $rangeEnd): array
+    {
+        $connection = $resource->calendarConnection;
+
+        if ($connection === null || $connection->status !== CalendarConnectionStatus::Active) {
+            return [];
+        }
+
+        return collect($connection->busy_periods ?? [])
+            ->map(fn (array $period) => [
+                CarbonImmutable::parse($period['start']),
+                CarbonImmutable::parse($period['end']),
+            ])
+            ->filter(fn (array $period) => $period[0]->lt($rangeEnd) && $period[1]->gt($rangeStart))
+            ->values()
+            ->all();
     }
 
     /**

@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Domain\ApiKey\ApiKey;
 use App\Domain\Booking\Booking;
+use App\Domain\Calendar\CalendarConnection;
+use App\Domain\Calendar\GoogleCalendarProvider;
 use App\Domain\Location\Location;
 use App\Domain\Organization\Organization;
 use App\Domain\Payment\Payment;
@@ -16,6 +18,7 @@ use App\Domain\Webhook\WebhookEndpoint;
 use App\Models\User;
 use App\Policies\ApiKeyPolicy;
 use App\Policies\BookingPolicy;
+use App\Policies\CalendarConnectionPolicy;
 use App\Policies\LocationPolicy;
 use App\Policies\OrganizationPolicy;
 use App\Policies\PaymentPolicy;
@@ -40,7 +43,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(GoogleCalendarProvider::class, fn () => new GoogleCalendarProvider(
+            (string) config('services.google.client_id'),
+            (string) config('services.google.client_secret'),
+            (string) config('services.google.redirect_uri'),
+        ));
     }
 
     /**
@@ -61,6 +68,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(ApiKey::class, ApiKeyPolicy::class);
         Gate::policy(WebhookEndpoint::class, WebhookEndpointPolicy::class);
         Gate::policy(WebhookDelivery::class, WebhookDeliveryPolicy::class);
+        Gate::policy(CalendarConnection::class, CalendarConnectionPolicy::class);
 
         // This app is API-only -- there's no "login" web route to redirect
         // to. Without this, Illuminate\Auth\Middleware\Authenticate resolves

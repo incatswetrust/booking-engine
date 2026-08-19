@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AvailabilityController;
 use App\Http\Controllers\Api\V1\BookingController;
 use App\Http\Controllers\Api\V1\BookingHoldController;
+use App\Http\Controllers\Api\V1\CalendarConnectionController;
 use App\Http\Controllers\Api\V1\LocationController;
 use App\Http\Controllers\Api\V1\OrganizationController;
 use App\Http\Controllers\Api\V1\PaymentController;
@@ -27,6 +28,11 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
     // Not authenticated via Sanctum -- Stripe verifies itself via
     // Stripe-Signature (§32), a bearer token wouldn't make sense here.
     Route::post('webhooks/stripe', [StripeWebhookController::class, 'handle']);
+
+    // Not authenticated via Sanctum -- this is where Google's browser
+    // redirect lands after the user grants access (§36); the "state"
+    // query param (not a bearer token) is what proves it's legitimate.
+    Route::get('calendar-connections/callback', [CalendarConnectionController::class, 'callback']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout']);
@@ -57,6 +63,10 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
 
         Route::apiResource('resource-blocks', ResourceBlockController::class)
             ->only(['index', 'store', 'destroy']);
+
+        Route::post('resources/{resource}/calendar-connection/authorize', [CalendarConnectionController::class, 'startAuthorization']);
+        Route::get('resources/{resource}/calendar-connection', [CalendarConnectionController::class, 'show']);
+        Route::delete('resources/{resource}/calendar-connection', [CalendarConnectionController::class, 'destroy']);
 
         Route::post('booking-holds', [BookingHoldController::class, 'store'])
             ->middleware('idempotent');
