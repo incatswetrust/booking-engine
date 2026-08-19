@@ -54,6 +54,8 @@ class Organization extends Model
             'default_booking_duration' => 60,
             'payment_timeout_minutes' => 30,
             'late_cancellation_refund_percent' => 50,
+            // §40: 24h, 2h, 15min before.
+            'reminder_offsets_minutes' => [1440, 120, 15],
         ];
     }
 

@@ -8,6 +8,8 @@ use App\Domain\Payment\Payment;
 use App\Domain\Payment\PaymentStatus;
 use App\Listeners\ProcessPaymentWebhook;
 use App\Models\User;
+use App\Notifications\PaymentFailedNotification;
+use Illuminate\Support\Facades\Notification;
 
 function makeAwaitingPaymentBooking(): array
 {
@@ -45,7 +47,9 @@ it('marks the payment paid and confirms the booking on payment_intent.succeeded'
         ->and($booking->refresh()->status)->toBe(BookingStatus::Confirmed);
 });
 
-it('marks the payment failed and leaves the booking in awaiting_payment on payment_intent.payment_failed', function () {
+it('marks the payment failed, notifies the customer, and leaves the booking in awaiting_payment on payment_intent.payment_failed', function () {
+    Notification::fake();
+
     [$booking, $payment] = makeAwaitingPaymentBooking();
 
     app(ProcessPaymentWebhook::class)->handle(new StripeWebhookReceived('1', [
@@ -56,6 +60,12 @@ it('marks the payment failed and leaves the booking in awaiting_payment on payme
     expect($payment->refresh()->status)->toBe(PaymentStatus::Failed)
         ->and($payment->failure_reason)->toBe('Your card was declined.')
         ->and($booking->refresh()->status)->toBe(BookingStatus::AwaitingPayment);
+
+    Notification::assertSentTo(
+        $booking->customer,
+        PaymentFailedNotification::class,
+        fn ($notification) => in_array('Reason: Your card was declined.', $notification->toMail($booking->customer)->introLines, true),
+    );
 });
 
 it('ignores an unrecognized provider_payment_id', function () {

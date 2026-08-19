@@ -8,6 +8,7 @@ use App\Domain\Payment\Events\StripeWebhookReceived;
 use App\Domain\Payment\Payment;
 use App\Domain\Payment\PaymentStateMachine;
 use App\Domain\Payment\PaymentStatus;
+use App\Notifications\PaymentFailedNotification;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
@@ -96,6 +97,11 @@ class ProcessPaymentWebhook implements ShouldQueue
         $reason = $object['last_payment_error']['message'] ?? 'The payment was declined.';
 
         $this->paymentStateMachine->transition($payment, PaymentStatus::Failed, ['failure_reason' => $reason]);
+
+        $payment->booking->customer->notify(new PaymentFailedNotification([
+            ...$payment->booking->toOutboxPayload(),
+            'failure_reason' => $reason,
+        ]));
     }
 
     /**
