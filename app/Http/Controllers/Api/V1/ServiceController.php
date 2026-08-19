@@ -63,6 +63,8 @@ class ServiceController extends Controller
             'price' => $request->validated('price'),
             'currency' => strtoupper((string) $request->validated('currency')),
             'status' => 'active',
+            'payment_mode' => $request->validated('payment_mode', 'none'),
+            'deposit_amount' => $request->validated('deposit_amount'),
         ]);
 
         $this->syncResources($service, $request->validated('resource_ids'));
