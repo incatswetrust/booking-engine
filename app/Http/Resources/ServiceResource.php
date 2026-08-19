@@ -25,6 +25,8 @@ class ServiceResource extends JsonResource
             'price' => (float) $this->price,
             'currency' => $this->currency,
             'status' => $this->status,
+            'payment_mode' => $this->payment_mode,
+            'deposit_amount' => $this->deposit_amount !== null ? (float) $this->deposit_amount : null,
             'resource_ids' => $this->whenLoaded('resources', fn () => $this->resources->pluck('public_id')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

@@ -27,6 +27,8 @@ class Service extends Model
         'price',
         'currency',
         'status',
+        'payment_mode',
+        'deposit_amount',
     ];
 
     protected $casts = [
@@ -34,7 +36,23 @@ class Service extends Model
         'buffer_before_minutes' => 'integer',
         'buffer_after_minutes' => 'integer',
         'price' => 'decimal:2',
+        'payment_mode' => PaymentMode::class,
+        'deposit_amount' => 'decimal:2',
     ];
+
+    /**
+     * The amount a Payment should be created for (§30) — the configured
+     * deposit for "deposit" mode, otherwise the booking's own (already
+     * snapshotted) price, which "full" and "pay_after" both owe in full,
+     * just at different points in the booking lifecycle. Only meaningful
+     * when payment_mode->requiresPayment() is true.
+     */
+    public function amountOwed(string $bookingPrice): string
+    {
+        return $this->payment_mode === PaymentMode::Deposit
+            ? (string) $this->deposit_amount
+            : $bookingPrice;
+    }
 
     public static function publicIdPrefix(): string
     {

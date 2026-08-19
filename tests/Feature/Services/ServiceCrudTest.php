@@ -116,3 +116,92 @@ it('updates and deletes a service as the owner', function () {
 
     expect(Service::find($service->id))->toBeNull();
 });
+
+it('defaults a new service to payment_mode none', function () {
+    $organization = Organization::factory()->create();
+    actingAsMember($this, $organization, Role::OrganizationOwner);
+
+    $this->postJson('/api/v1/services', [
+        'organization_id' => $organization->public_id,
+        'name' => 'Consultation',
+        'duration_minutes' => 30,
+        'price' => 20,
+        'currency' => 'USD',
+    ])
+        ->assertCreated()
+        ->assertJsonPath('data.payment_mode', 'none')
+        ->assertJsonPath('data.deposit_amount', null);
+});
+
+it('creates a service requiring full payment', function () {
+    $organization = Organization::factory()->create();
+    actingAsMember($this, $organization, Role::OrganizationOwner);
+
+    $this->postJson('/api/v1/services', [
+        'organization_id' => $organization->public_id,
+        'name' => 'Consultation',
+        'duration_minutes' => 30,
+        'price' => 20,
+        'currency' => 'USD',
+        'payment_mode' => 'full',
+    ])
+        ->assertCreated()
+        ->assertJsonPath('data.payment_mode', 'full');
+});
+
+it('requires a deposit_amount when payment_mode is deposit', function () {
+    $organization = Organization::factory()->create();
+    actingAsMember($this, $organization, Role::OrganizationOwner);
+
+    $this->postJson('/api/v1/services', [
+        'organization_id' => $organization->public_id,
+        'name' => 'Consultation',
+        'duration_minutes' => 30,
+        'price' => 20,
+        'currency' => 'USD',
+        'payment_mode' => 'deposit',
+    ])->assertStatus(422);
+});
+
+it('rejects a deposit_amount larger than the service price', function () {
+    $organization = Organization::factory()->create();
+    actingAsMember($this, $organization, Role::OrganizationOwner);
+
+    $this->postJson('/api/v1/services', [
+        'organization_id' => $organization->public_id,
+        'name' => 'Consultation',
+        'duration_minutes' => 30,
+        'price' => 20,
+        'currency' => 'USD',
+        'payment_mode' => 'deposit',
+        'deposit_amount' => 25,
+    ])->assertStatus(422);
+});
+
+it('creates a service requiring a deposit within the service price', function () {
+    $organization = Organization::factory()->create();
+    actingAsMember($this, $organization, Role::OrganizationOwner);
+
+    $this->postJson('/api/v1/services', [
+        'organization_id' => $organization->public_id,
+        'name' => 'Consultation',
+        'duration_minutes' => 30,
+        'price' => 20,
+        'currency' => 'USD',
+        'payment_mode' => 'deposit',
+        'deposit_amount' => 5.50,
+    ])
+        ->assertCreated()
+        ->assertJsonPath('data.payment_mode', 'deposit')
+        ->assertJsonPath('data.deposit_amount', 5.5);
+});
+
+it('updates a service to require payment', function () {
+    $organization = Organization::factory()->create();
+    actingAsMember($this, $organization, Role::OrganizationOwner);
+    $service = Service::factory()->for($organization)->create(['payment_mode' => 'none']);
+
+    $this->patchJson("/api/v1/services/{$service->public_id}", ['payment_mode' => 'pay_after'])
+        ->assertOk()
+        ->assertJsonPath('data.payment_mode', 'pay_after');
+});

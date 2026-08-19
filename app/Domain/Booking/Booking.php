@@ -6,6 +6,7 @@ use App\Domain\Concerns\AsUtcDateTime;
 use App\Domain\Concerns\HasPublicId;
 use App\Domain\Location\Location;
 use App\Domain\Organization\Organization;
+use App\Domain\Payment\Payment;
 use App\Domain\Resource\Resource;
 use App\Domain\Service\Service;
 use App\Models\User;
@@ -101,6 +102,14 @@ class Booking extends Model
     public function statusHistory(): HasMany
     {
         return $this->hasMany(BookingStatusHistory::class);
+    }
+
+    /**
+     * @return HasMany<Payment, $this>
+     */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
     }
 
     /**

@@ -3,9 +3,11 @@
 namespace App\Http\Requests\Service;
 
 use App\Domain\Resource\Resource;
+use App\Domain\Service\PaymentMode;
 use App\Domain\Service\Service;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rules\Enum;
 
 class UpdateServiceRequest extends FormRequest
 {
@@ -30,6 +32,8 @@ class UpdateServiceRequest extends FormRequest
             'status' => ['sometimes', 'string', 'max:255'],
             'resource_ids' => ['sometimes', 'array'],
             'resource_ids.*' => ['string', 'exists:resources,public_id'],
+            'payment_mode' => ['sometimes', new Enum(PaymentMode::class)],
+            'deposit_amount' => ['required_if:payment_mode,deposit', 'nullable', 'numeric', 'min:0.01'],
         ];
     }
 
@@ -39,16 +43,23 @@ class UpdateServiceRequest extends FormRequest
             /** @var Service $service */
             $service = $this->route('service');
 
-            if (! $this->filled('resource_ids')) {
-                return;
+            if ($this->filled('resource_ids')) {
+                $foreignResourceCount = Resource::whereIn('public_id', $this->input('resource_ids'))
+                    ->where('organization_id', '!=', $service->organization_id)
+                    ->count();
+
+                if ($foreignResourceCount > 0) {
+                    $validator->errors()->add('resource_ids', 'All resources must belong to this service\'s organization.');
+                }
             }
 
-            $foreignResourceCount = Resource::whereIn('public_id', $this->input('resource_ids'))
-                ->where('organization_id', '!=', $service->organization_id)
-                ->count();
+            $effectivePaymentMode = $this->input('payment_mode', $service->payment_mode?->value);
+            $effectivePrice = $this->input('price', (string) $service->price);
 
-            if ($foreignResourceCount > 0) {
-                $validator->errors()->add('resource_ids', 'All resources must belong to this service\'s organization.');
+            if ($effectivePaymentMode === 'deposit'
+                && $this->filled('deposit_amount')
+                && (float) $this->input('deposit_amount') > (float) $effectivePrice) {
+                $validator->errors()->add('deposit_amount', 'The deposit amount cannot exceed the service price.');
             }
         });
     }

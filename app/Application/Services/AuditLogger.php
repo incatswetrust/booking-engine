@@ -4,7 +4,9 @@ namespace App\Application\Services;
 
 use App\Domain\Audit\AuditLog;
 use App\Domain\Organization\Organization;
+use App\Domain\Payment\Payment;
 use App\Domain\Resource\ResourceBlock;
+use App\Domain\Waitlist\WaitlistEntry;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 
@@ -42,6 +44,14 @@ class AuditLogger
 
         if ($entity instanceof ResourceBlock) {
             return $entity->resource?->organization_id;
+        }
+
+        if ($entity instanceof Payment) {
+            return $entity->booking?->organization_id;
+        }
+
+        if ($entity instanceof WaitlistEntry) {
+            return $entity->service?->organization_id;
         }
 
         return $entity->organization_id ?? null;
