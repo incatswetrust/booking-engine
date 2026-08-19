@@ -11,6 +11,8 @@ use App\Domain\Resource\Resource;
 use App\Domain\Resource\ResourceGroup;
 use App\Domain\Service\Service;
 use App\Domain\Waitlist\WaitlistEntry;
+use App\Domain\Webhook\WebhookDelivery;
+use App\Domain\Webhook\WebhookEndpoint;
 use App\Models\User;
 use App\Policies\ApiKeyPolicy;
 use App\Policies\BookingPolicy;
@@ -21,6 +23,8 @@ use App\Policies\ResourceGroupPolicy;
 use App\Policies\ResourcePolicy;
 use App\Policies\ServicePolicy;
 use App\Policies\WaitlistPolicy;
+use App\Policies\WebhookDeliveryPolicy;
+use App\Policies\WebhookEndpointPolicy;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -55,6 +59,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Payment::class, PaymentPolicy::class);
         Gate::policy(WaitlistEntry::class, WaitlistPolicy::class);
         Gate::policy(ApiKey::class, ApiKeyPolicy::class);
+        Gate::policy(WebhookEndpoint::class, WebhookEndpointPolicy::class);
+        Gate::policy(WebhookDelivery::class, WebhookDeliveryPolicy::class);
 
         // This app is API-only -- there's no "login" web route to redirect
         // to. Without this, Illuminate\Auth\Middleware\Authenticate resolves

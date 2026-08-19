@@ -16,6 +16,8 @@ use App\Http\Controllers\Api\V1\ScheduleExceptionController;
 use App\Http\Controllers\Api\V1\ServiceController;
 use App\Http\Controllers\Api\V1\StripeWebhookController;
 use App\Http\Controllers\Api\V1\WaitlistController;
+use App\Http\Controllers\Api\V1\WebhookDeliveryController;
+use App\Http\Controllers\Api\V1\WebhookEndpointController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->middleware('throttle:api')->group(function () {
@@ -76,6 +78,13 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
 
         Route::apiResource('api-keys', ApiKeyController::class)
             ->only(['index', 'store', 'destroy']);
+
+        Route::apiResource('webhook-endpoints', WebhookEndpointController::class)
+            ->parameter('webhook-endpoints', 'webhookEndpoint')
+            ->only(['index', 'store', 'update', 'destroy']);
+
+        Route::get('webhook-deliveries', [WebhookDeliveryController::class, 'index']);
+        Route::post('webhook-deliveries/{webhookDelivery}/retry', [WebhookDeliveryController::class, 'retry']);
     });
 
     // §45: also reachable via an API key (Authorization: Bearer booking_live_...),
