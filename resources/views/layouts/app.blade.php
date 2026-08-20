@@ -6,6 +6,9 @@
     <title>{{ $title ?? config('app.name', 'Booking Engine') }}</title>
     <meta name="description" content="{{ $description ?? 'Multi-provider booking engine API — resources, availability, bookings, payments, webhooks, and more.' }}">
 
+    <link rel="icon" type="image/png" href="{{ asset('images/favicon-32.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/apple-touch-icon.png') }}">
+
     @fonts
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
@@ -13,7 +16,7 @@
     <nav class="surface-nav sticky top-0 z-40">
         <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-4 sm:px-8">
             <a href="{{ url('/') }}" class="flex items-center gap-2.5">
-                <span class="glow-line block h-6 w-1.5 rounded-full"></span>
+                <img src="{{ asset('images/mnstr.png') }}" alt="Booking Engine" class="h-7 w-7 rounded-md object-cover">
                 <span class="font-display text-[15px] font-bold tracking-tight text-content-primary">Booking Engine</span>
             </a>
 
