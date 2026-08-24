@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ $title ?? config('app.name', 'Booking Engine') }}</title>
+    <title>{{ $title ?? 'Bukakke Monster' }}</title>
     <meta name="description" content="{{ $description ?? 'Multi-provider booking engine API — resources, availability, bookings, payments, webhooks, and more.' }}">
 
     <link rel="icon" type="image/png" href="{{ asset('images/favicon-32.png') }}">
@@ -13,14 +13,46 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-app text-content-primary min-h-screen">
+    @php
+        $cmdkReference = require resource_path('data/api-reference.php');
+        $cmdkEndpoints = collect($cmdkReference['groups'] ?? [])->flatMap(
+            fn ($group) => collect($group['endpoints'] ?? [])->map(fn ($endpoint) => [
+                'label' => $endpoint['method'].' '.$endpoint['path'],
+                'method' => $endpoint['method'],
+                'group' => $group['name'],
+                'href' => url('/').'#'.$endpoint['slug'],
+            ])
+        );
+        $cmdkPages = collect([
+            ['label' => 'API Reference', 'method' => 'PAGE', 'group' => 'Pages', 'href' => url('/')],
+            ['label' => 'Deployment guide', 'method' => 'PAGE', 'group' => 'Pages', 'href' => url('/deployment')],
+            ['label' => 'Swagger UI', 'method' => 'PAGE', 'group' => 'Pages', 'href' => url('/docs')],
+            ['label' => 'Health check', 'method' => 'PAGE', 'group' => 'Pages', 'href' => url('/health')],
+        ]);
+        $cmdkIndex = $cmdkPages->concat($cmdkEndpoints)->values();
+    @endphp
+
     <nav class="surface-nav sticky top-0 z-40">
-        <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-4 sm:px-8">
-            <a href="{{ url('/') }}" class="flex items-center gap-2.5">
-                <img src="{{ asset('images/mnstr.png') }}" alt="Booking Engine" class="h-7 w-7 rounded-md object-cover">
-                <span class="font-display text-[15px] font-bold tracking-tight text-content-primary">Booking Engine</span>
+        <div class="mx-auto flex max-w-6xl items-center gap-3 px-5 py-3.5 sm:gap-5 sm:px-8">
+            <a href="{{ url('/') }}" class="flex shrink-0 items-center gap-2.5">
+                <img src="{{ asset('images/mnstr.png') }}" alt="Bukakke Monster" class="h-7 w-7 rounded-md object-cover">
+                <span class="hidden font-display text-[15px] font-bold tracking-tight text-content-primary sm:inline">Bukakke Monster</span>
             </a>
 
-            <div class="hidden items-center gap-6 text-sm font-medium text-content-secondary sm:flex">
+            <button
+                type="button"
+                id="searchpill"
+                class="searchpill min-w-0 flex-1 sm:max-w-xs"
+                aria-haspopup="dialog"
+                aria-expanded="false"
+                aria-controls="cmdk"
+            >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
+                <span class="searchpill-text">Search endpoints&hellip;</span>
+                <span class="searchpill-kbd"><kbd>&#8984;</kbd><kbd>K</kbd></span>
+            </button>
+
+            <div class="ml-auto hidden shrink-0 items-center gap-6 text-sm font-medium text-content-secondary sm:flex">
                 <a href="{{ url('/') }}" class="transition hover:text-content-primary {{ request()->is('/') ? 'nav-link-active' : '' }}">API Reference</a>
                 <a href="{{ url('/deployment') }}" class="transition hover:text-content-primary {{ request()->is('deployment') ? 'nav-link-active' : '' }}">Deployment</a>
                 <a href="{{ url('/docs') }}" class="transition hover:text-content-primary">Swagger&nbsp;UI</a>
@@ -30,23 +62,45 @@
                     </svg>
                 </a>
             </div>
-
-            <a href="{{ url('/docs') }}" class="btn-tertiary !min-h-0 !px-4 !py-2 text-xs sm:hidden">Swagger</a>
         </div>
     </nav>
+
+    <div class="cmdk" id="cmdk" aria-hidden="true">
+        <div class="cmdk-backdrop" data-cmdk-close></div>
+        <div class="cmdk-panel" role="dialog" aria-modal="true" aria-label="Search endpoints and pages">
+            <div class="cmdk-field">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
+                <input id="cmdk-input" type="text" placeholder="Search endpoints, pages&hellip;" autocomplete="off" spellcheck="false">
+                <kbd class="cmdk-esc">esc</kbd>
+            </div>
+            <div class="cmdk-results" id="cmdk-results"></div>
+            <div class="cmdk-foot">
+                <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> navigate</span>
+                <span><kbd>&crarr;</kbd> open</span>
+                <span><kbd>esc</kbd> close</span>
+            </div>
+        </div>
+    </div>
+    <script type="application/json" id="cmdk-data">{!! json_encode($cmdkIndex, JSON_UNESCAPED_SLASHES) !!}</script>
 
     <main>
         @yield('content')
     </main>
 
-    <footer class="border-t border-[#241249] px-5 py-10 sm:px-8">
-        <div class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-xs text-content-muted sm:flex-row">
-            <p>Booking Engine API &mdash; MIT Licensed.</p>
-            <div class="flex items-center gap-5">
-                <a href="{{ url('/') }}" class="transition hover:text-content-primary">API Reference</a>
-                <a href="{{ url('/deployment') }}" class="transition hover:text-content-primary">Deployment</a>
-                <a href="{{ url('/health') }}" class="transition hover:text-content-primary">Health</a>
-                <a href="https://github.com/incatswetrust/booking-engine" target="_blank" rel="noopener" class="transition hover:text-content-primary">Source</a>
+    <footer class="foot-mast border-t border-[#241249] px-5 py-10 sm:px-8">
+        <div class="mx-auto flex max-w-6xl flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+                <p class="foot-mast-wordmark">Bukakke Monster</p>
+                <p class="foot-mast-tagline">A multi-provider booking engine API &mdash; resources, availability, bookings, payments, webhooks, and calendar sync.</p>
+            </div>
+            <div class="sm:text-right">
+                <nav class="foot-mast-links sm:justify-end">
+                    <a href="{{ url('/') }}" class="transition">API Reference</a>
+                    <a href="{{ url('/deployment') }}" class="transition">Deployment</a>
+                    <a href="{{ url('/health') }}" class="transition">Health</a>
+                    <a href="https://github.com/incatswetrust/booking-engine" target="_blank" rel="noopener" class="transition">Source</a>
+                </nav>
+                <p class="foot-mast-meta">MIT Licensed.</p>
             </div>
         </div>
     </footer>
