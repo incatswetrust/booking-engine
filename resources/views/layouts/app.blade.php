@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ $title ?? config('app.name', 'Booking Engine') }}</title>
+    <title>{{ $title ?? 'Bukakke Monster' }}</title>
     <meta name="description" content="{{ $description ?? 'Multi-provider booking engine API — resources, availability, bookings, payments, webhooks, and more.' }}">
 
     <link rel="icon" type="image/png" href="{{ asset('images/favicon-32.png') }}">
@@ -16,8 +16,8 @@
     <nav class="surface-nav sticky top-0 z-40">
         <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-4 sm:px-8">
             <a href="{{ url('/') }}" class="flex items-center gap-2.5">
-                <img src="{{ asset('images/mnstr.png') }}" alt="Booking Engine" class="h-7 w-7 rounded-md object-cover">
-                <span class="font-display text-[15px] font-bold tracking-tight text-content-primary">Booking Engine</span>
+                <img src="{{ asset('images/mnstr.png') }}" alt="Bukakke Monster" class="h-7 w-7 rounded-md object-cover">
+                <span class="font-display text-[15px] font-bold tracking-tight text-content-primary">Bukakke Monster</span>
             </a>
 
             <div class="hidden items-center gap-6 text-sm font-medium text-content-secondary sm:flex">
@@ -41,7 +41,7 @@
 
     <footer class="border-t border-[#241249] px-5 py-10 sm:px-8">
         <div class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-xs text-content-muted sm:flex-row">
-            <p>Booking Engine API &mdash; MIT Licensed.</p>
+            <p>Bukakke Monster API &mdash; MIT Licensed.</p>
             <div class="flex items-center gap-5">
                 <a href="{{ url('/') }}" class="transition hover:text-content-primary">API Reference</a>
                 <a href="{{ url('/deployment') }}" class="transition hover:text-content-primary">Deployment</a>

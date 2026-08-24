@@ -482,7 +482,7 @@ Response: `{"status": "ok"|"unavailable", "checks": {...}}`. 200 or 503.',
         ],
         10 => [
             'name' => 'Calendar Connections',
-            'intro' => 'Google Calendar sync per resource. Only Google is implemented (Outlook is out of scope by product decision).',
+            'intro' => 'Google Calendar sync per resource. Only Google is implemented.',
             'endpoints' => [
                 0 => [
                     'method' => 'POST',
