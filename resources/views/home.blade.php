@@ -8,7 +8,7 @@
         <h1 class="mt-4 max-w-3xl font-display text-4xl font-bold leading-[1.05] text-content-primary sm:text-5xl">
             Booking Engine <span class="text-pink">API</span>
         </h1>
-        <p class="mt-5 max-w-2xl text-[15px] leading-relaxed text-content-secondary">
+        <!-- <p class="mt-5 max-w-2xl text-[15px] leading-relaxed text-content-secondary">
             A multi-provider booking engine: resources, capacity-aware availability, payments, recurring bookings,
             webhooks, Google Calendar sync, and a public booking flow for anonymous visitors. Every endpoint below
             is documented from the real request validation and response classes — parameters, response shape, and
@@ -19,9 +19,9 @@
             <a href="#global" class="btn-primary">Start here: Auth &amp; conventions</a>
             <a href="{{ url('/docs') }}" class="btn-tertiary">Swagger UI</a>
             <a href="{{ url('/deployment') }}" class="btn-tertiary">Deployment guide</a>
-        </div>
+        </div> -->
 
-        <div class="mt-8 grid gap-4 sm:grid-cols-3">
+        <!-- <div class="mt-8 grid gap-4 sm:grid-cols-3">
             <div class="surface-card p-5">
                 <p class="font-mono text-2xl font-bold text-gold">{{ collect($reference['groups'])->sum(fn ($g) => count($g['endpoints'])) }}</p>
                 <p class="mt-1 text-xs font-medium uppercase tracking-wide text-content-muted">Endpoints</p>
@@ -34,7 +34,7 @@
                 <p class="font-mono text-2xl font-bold text-gold">JSON</p>
                 <p class="mt-1 text-xs font-medium uppercase tracking-wide text-content-muted">Every request &amp; response body</p>
             </div>
-        </div>
+        </div> -->
     </div>
 </div>
 

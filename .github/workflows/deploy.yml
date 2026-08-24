@@ -1,0 +1,43 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: true
+          script: |
+            cd /opt/booking-engine
+            sudo chown -R deploy:deploy /opt/booking-engine
+            git fetch origin main
+            git reset --hard origin/main
+            docker compose build
+            for i in 1 2 3; do
+              docker compose up -d --remove-orphans && break
+              echo "docker compose up failed (attempt $i), retrying in 5s..."
+              sleep 5
+            done
+            docker compose exec -T app composer install --no-interaction --no-progress --prefer-dist
+            docker compose exec -T app npm ci --no-audit --no-fund
+            docker compose exec -T app npm run build
+            docker compose restart app horizon scheduler outbox nginx
+            docker image prune -f
