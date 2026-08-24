@@ -36,5 +36,8 @@ jobs:
               echo "docker compose up failed (attempt $i), retrying in 5s..."
               sleep 5
             done
-            docker compose restart nginx
+            docker compose exec -T app composer install --no-interaction --no-progress --prefer-dist
+            docker compose exec -T app npm ci --no-audit --no-fund
+            docker compose exec -T app npm run build
+            docker compose restart app horizon scheduler outbox nginx
             docker image prune -f
