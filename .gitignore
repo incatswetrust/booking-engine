@@ -26,3 +26,11 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Project planning docs — not meant to be committed
+/Technical Specification.md
+/Requirements.txt
+/TASKS.md
+
+# Stray file, unrelated to this project — not meant to be committed
+/neon_dark_palette_design_system.md
