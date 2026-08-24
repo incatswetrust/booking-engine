@@ -1,40 +1,14 @@
 @extends('layouts.app')
 
 @section('content')
-{{-- Hero --}}
-<div class="border-b border-[#241249] px-5 pb-16 pt-14 sm:px-8 sm:pt-20">
-    <div class="mx-auto max-w-6xl">
-        <p class="chip">API Reference</p>
-        <h1 class="mt-4 max-w-3xl font-display text-4xl font-bold leading-[1.05] text-content-primary sm:text-5xl">
+{{-- Index-First opening — chrome only. The lede/CTA/stats block below was
+     deliberately trimmed (see the "trim homepage intro copy" commit); the
+     endpoint index carries the page instead of a marketing hero. --}}
+<div class="border-b border-[#241249]">
+    <div class="mx-auto max-w-6xl px-5 pb-8 pt-10 sm:px-8 sm:pt-12">
+        <h1 class="max-w-2xl font-display text-2xl font-bold leading-tight text-content-primary sm:text-[28px]">
             Booking Engine <span class="text-pink">API</span>
         </h1>
-        <!-- <p class="mt-5 max-w-2xl text-[15px] leading-relaxed text-content-secondary">
-            A multi-provider booking engine: resources, capacity-aware availability, payments, recurring bookings,
-            webhooks, Google Calendar sync, and a public booking flow for anonymous visitors. Every endpoint below
-            is documented from the real request validation and response classes — parameters, response shape, and
-            every error code the endpoint can actually return.
-        </p>
-
-        <div class="mt-7 flex flex-wrap gap-3">
-            <a href="#global" class="btn-primary">Start here: Auth &amp; conventions</a>
-            <a href="{{ url('/docs') }}" class="btn-tertiary">Swagger UI</a>
-            <a href="{{ url('/deployment') }}" class="btn-tertiary">Deployment guide</a>
-        </div> -->
-
-        <!-- <div class="mt-8 grid gap-4 sm:grid-cols-3">
-            <div class="surface-card p-5">
-                <p class="font-mono text-2xl font-bold text-gold">{{ collect($reference['groups'])->sum(fn ($g) => count($g['endpoints'])) }}</p>
-                <p class="mt-1 text-xs font-medium uppercase tracking-wide text-content-muted">Endpoints</p>
-            </div>
-            <div class="surface-card p-5">
-                <p class="font-mono text-2xl font-bold text-gold">v1</p>
-                <p class="mt-1 text-xs font-medium uppercase tracking-wide text-content-muted">API version, at <code>/api/v1</code></p>
-            </div>
-            <div class="surface-card p-5">
-                <p class="font-mono text-2xl font-bold text-gold">JSON</p>
-                <p class="mt-1 text-xs font-medium uppercase tracking-wide text-content-muted">Every request &amp; response body</p>
-            </div>
-        </div> -->
     </div>
 </div>
 
@@ -47,7 +21,7 @@
                     id="endpoint-search"
                     type="text"
                     placeholder="Filter endpoints&hellip;"
-                    class="input w-full !min-h-[40px] !text-sm"
+                    class="input !min-h-[40px] !text-sm"
                     autocomplete="off"
                 >
             </div>

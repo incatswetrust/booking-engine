@@ -2,9 +2,8 @@
 
 @section('content')
 <div class="mx-auto max-w-4xl px-5 py-14 sm:px-8 sm:py-20">
-    <p class="chip">Operations</p>
-    <h1 class="mt-4 font-display text-4xl font-bold text-content-primary sm:text-5xl">Deployment Guide</h1>
-    <p class="mt-4 max-w-2xl text-[15px] leading-relaxed text-content-secondary">
+    <h1 class="font-display text-2xl font-bold text-content-primary sm:text-[28px]">Deployment guide</h1>
+    <p class="mt-3 max-w-2xl text-[14.5px] leading-relaxed text-content-secondary">
         This project ships as a self-contained Docker Compose stack — the same one this API was built and
         tested against. This guide covers running it locally, what belongs in <code class="rounded bg-[#24104e] px-1.5 py-0.5 text-content-primary">.env</code>,
         and what to change for a production host.
