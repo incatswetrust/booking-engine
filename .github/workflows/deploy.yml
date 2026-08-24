@@ -31,6 +31,10 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             docker compose build
-            docker compose up -d --remove-orphans
+            for i in 1 2 3; do
+              docker compose up -d --remove-orphans && break
+              echo "docker compose up failed (attempt $i), retrying in 5s..."
+              sleep 5
+            done
             docker compose restart nginx
             docker image prune -f
