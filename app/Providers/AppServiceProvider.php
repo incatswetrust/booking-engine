@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Domain\ApiKey\ApiKey;
+use App\Domain\Auth\GoogleIdentityProvider;
 use App\Domain\Booking\Booking;
 use App\Domain\Calendar\CalendarConnection;
 use App\Domain\Calendar\GoogleCalendarProvider;
@@ -50,6 +51,11 @@ class AppServiceProvider extends ServiceProvider
             (string) config('services.google.client_id'),
             (string) config('services.google.client_secret'),
             (string) config('services.google.redirect_uri'),
+        ));
+
+        $this->app->bind(GoogleIdentityProvider::class, fn () => new GoogleIdentityProvider(
+            (string) config('services.google.client_id'),
+            (string) config('services.google.client_secret'),
         ));
     }
 
