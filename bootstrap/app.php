@@ -4,6 +4,9 @@ use App\Http\Errors\ApiExceptionRenderer;
 use App\Http\Middleware\AssignRequestId;
 use App\Http\Middleware\EnsureApiKeyScope;
 use App\Http\Middleware\EnsureIdempotency;
+use App\Http\Middleware\EnsurePlatformAdmin;
+use App\Http\Middleware\EnsureUserNotBanned;
+use App\Http\Middleware\TouchUserActivity;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -22,6 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'idempotent' => EnsureIdempotency::class,
             'api-key-scope' => EnsureApiKeyScope::class,
+            'not-banned' => EnsureUserNotBanned::class,
+            'touch-activity' => TouchUserActivity::class,
+            'platform-admin' => EnsurePlatformAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

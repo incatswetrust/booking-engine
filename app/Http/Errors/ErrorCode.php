@@ -12,6 +12,7 @@ enum ErrorCode: string
 
     case AuthenticationRequired = 'AUTHENTICATION_REQUIRED';
     case PermissionDenied = 'PERMISSION_DENIED';
+    case UserBanned = 'USER_BANNED';
 
     case ResourceNotFound = 'RESOURCE_NOT_FOUND';
 
