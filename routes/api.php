@@ -27,6 +27,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->middleware('throttle:api')->group(function () {
     Route::post('auth/register', [AuthController::class, 'register']);
     Route::post('auth/login', [AuthController::class, 'login']);
+    Route::post('auth/google', [AuthController::class, 'google']);
 
     // Not authenticated via Sanctum -- Stripe verifies itself via
     // Stripe-Signature (§32), a bearer token wouldn't make sense here.
