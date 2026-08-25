@@ -17,7 +17,6 @@ use App\Domain\Waitlist\WaitlistEntry;
 use App\Domain\Webhook\WebhookDelivery;
 use App\Domain\Webhook\WebhookEndpoint;
 use App\Infrastructure\Metrics\Metrics;
-use App\Models\User;
 use App\Policies\ApiKeyPolicy;
 use App\Policies\BookingPolicy;
 use App\Policies\CalendarConnectionPolicy;
@@ -64,8 +63,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Gate::before(fn (User $user) => $user->is_platform_admin ? true : null);
-
+        // §61/§71: Platform Admin's only real power is the dedicated
+        // /admin/* surface (list/ban/unban users, aggregate user
+        // statistics), gated by its own EnsurePlatformAdmin middleware --
+        // not a Policy bypass. There must be no Gate::before shortcut
+        // here: it would silently let a platform admin read/manage every
+        // tenant's organizations, bookings, payments, etc. through the
+        // *regular* API, which is exactly the business content §61 says
+        // Platform Admin must never see.
         Gate::policy(Organization::class, OrganizationPolicy::class);
         Gate::policy(Location::class, LocationPolicy::class);
         Gate::policy(ResourceGroup::class, ResourceGroupPolicy::class);

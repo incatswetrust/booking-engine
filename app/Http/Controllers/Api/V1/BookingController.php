@@ -52,19 +52,20 @@ class BookingController extends Controller
 
         $query = Booking::query()->with(['organization', 'customer', 'service', 'resource', 'location']);
 
-        if (! $user->is_platform_admin) {
-            $readableOrgIds = $user->organizations
-                ->filter(fn (Organization $org) => $user->hasPermissionTo(Permission::BookingsRead, $org))
-                ->pluck('id');
+        // §61/§71: no platform-admin bypass -- a platform admin sees the
+        // same thing anyone else would (their own bookings, plus any
+        // organization they actually belong to and can read).
+        $readableOrgIds = $user->organizations
+            ->filter(fn (Organization $org) => $user->hasPermissionTo(Permission::BookingsRead, $org))
+            ->pluck('id');
 
-            $query->where(function ($q) use ($user, $readableOrgIds) {
-                $q->where('customer_id', $user->id);
+        $query->where(function ($q) use ($user, $readableOrgIds) {
+            $q->where('customer_id', $user->id);
 
-                if ($readableOrgIds->isNotEmpty()) {
-                    $q->orWhereIn('organization_id', $readableOrgIds);
-                }
-            });
-        }
+            if ($readableOrgIds->isNotEmpty()) {
+                $q->orWhereIn('organization_id', $readableOrgIds);
+            }
+        });
 
         if ($request->filled('status')) {
             $query->where('status', $request->query('status'));

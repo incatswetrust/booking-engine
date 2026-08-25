@@ -34,21 +34,11 @@ class OrganizationController extends Controller
     )]
     public function index(Request $request): AnonymousResourceCollection
     {
-        $user = $request->user();
-        $memberOrganizations = $user->organizations()->get();
-
-        // A platform admin sees every organization (not just ones they're
-        // a member of), but only the ones from $memberOrganizations carry
-        // a real pivot row -- the rest correctly report my_role: null
-        // rather than a fabricated one, since they aren't actually a
-        // member of those.
-        $organizations = $user->is_platform_admin
-            ? $memberOrganizations->concat(
-                Organization::query()->whereNotIn('id', $memberOrganizations->pluck('id'))->get()
-            )
-            : $memberOrganizations;
-
-        return OrganizationResource::collection($organizations);
+        // §61/§71: a platform admin is not special here -- their only
+        // elevated capability is the /admin/* surface. Listing every
+        // organization on the platform would leak other tenants'
+        // business content into the regular API.
+        return OrganizationResource::collection($request->user()->organizations()->get());
     }
 
     #[OA\Post(
@@ -95,9 +85,8 @@ class OrganizationController extends Controller
 
         // Route-model binding resolves $organization with no pivot
         // attached, so my_role would come back null for every caller --
-        // re-resolve it through the user's own membership when one
-        // exists (a platform admin viewing an organization they don't
-        // belong to correctly still gets my_role: null).
+        // re-resolve it through the user's own membership (authorize()
+        // above already guarantees one exists by this point).
         $withPivot = $request->user()->organizations()->find($organization->id);
 
         return new OrganizationResource($withPivot ?? $organization);

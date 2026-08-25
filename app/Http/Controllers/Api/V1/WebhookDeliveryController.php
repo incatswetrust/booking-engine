@@ -36,17 +36,17 @@ class WebhookDeliveryController extends Controller
     {
         $user = $request->user();
 
-        $readableOrgIds = $user->is_platform_admin
-            ? null
-            : $user->organizations
-                ->filter(fn (Organization $org) => $user->hasPermissionTo(Permission::IntegrationsManage, $org))
-                ->pluck('id');
+        // §61/§71: no platform-admin bypass -- see BookingController::index().
+        $readableOrgIds = $user->organizations
+            ->filter(fn (Organization $org) => $user->hasPermissionTo(Permission::IntegrationsManage, $org))
+            ->pluck('id');
 
-        $query = WebhookDelivery::query()->with('webhookEndpoint');
-
-        if ($readableOrgIds !== null) {
-            $query->whereHas('webhookEndpoint', fn ($q) => $q->whereIn('organization_id', $readableOrgIds));
-        }
+        // whereIn on an empty collection compiles to an always-false
+        // clause, so a user with no manageable organizations correctly
+        // sees nothing without a special case here.
+        $query = WebhookDelivery::query()
+            ->with('webhookEndpoint')
+            ->whereHas('webhookEndpoint', fn ($q) => $q->whereIn('organization_id', $readableOrgIds));
 
         if ($request->filled('webhook_endpoint_id')) {
             $query->whereHas('webhookEndpoint', fn ($q) => $q->where('public_id', $request->query('webhook_endpoint_id')));
