@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Errors\ApiException;
+use App\Http\Errors\ErrorCode;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Resources\UserResource;
@@ -56,6 +58,12 @@ class AuthController extends Controller
             throw ValidationException::withMessages([
                 'email' => ['These credentials do not match our records.'],
             ]);
+        }
+
+        // §69: rejected before a token is ever issued -- distinct from the
+        // 422 "bad credentials" case above, since the credentials are correct.
+        if ($user->is_banned) {
+            throw new ApiException(ErrorCode::UserBanned, 'This account has been suspended.', 403);
         }
 
         $token = $user->createToken($request->validated('device_name', 'api'))->plainTextToken;

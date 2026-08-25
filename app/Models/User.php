@@ -39,6 +39,9 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_platform_admin' => 'boolean',
+            'is_banned' => 'boolean',
+            'banned_at' => 'datetime',
+            'last_activity_at' => 'datetime',
         ];
     }
 
@@ -69,5 +72,16 @@ class User extends Authenticatable
     public function routeNotificationForTelegram(): ?string
     {
         return $this->telegram_chat_id;
+    }
+
+    /**
+     * §64: Platform Admin's binary Active/Inactive indicator -- backed by
+     * last_activity_at, but that timestamp itself is never exposed via the
+     * admin API (§64), only this computed boolean.
+     */
+    public function isActive(): bool
+    {
+        return $this->last_activity_at !== null
+            && $this->last_activity_at->greaterThanOrEqualTo(now()->subDays(config('booking.active_user_window_days')));
     }
 }
