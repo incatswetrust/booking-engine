@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Admin\AdminUserController;
 use App\Http\Controllers\Api\V1\ApiKeyController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AvailabilityController;
@@ -46,7 +47,7 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
         Route::post('bookings', [PublicBookingController::class, 'store'])->middleware('idempotent');
     });
 
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', 'not-banned', 'touch-activity'])->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
 
@@ -111,11 +112,22 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
         Route::post('webhook-deliveries/{webhookDelivery}/retry', [WebhookDeliveryController::class, 'retry']);
     });
 
+    // §57-§74: Platform Admin only -- deliberately undocumented in the
+    // public API reference/OpenAPI docs (§104), these are internal
+    // operator endpoints, not part of the product surface a Dashboard
+    // user integrates against.
+    Route::prefix('admin')->middleware(['auth:sanctum', 'not-banned', 'platform-admin'])->group(function () {
+        Route::get('users', [AdminUserController::class, 'index']);
+        Route::post('users/{user}/ban', [AdminUserController::class, 'ban']);
+        Route::post('users/{user}/unban', [AdminUserController::class, 'unban']);
+        Route::get('statistics', [AdminUserController::class, 'statistics']);
+    });
+
     // §45: also reachable via an API key (Authorization: Bearer booking_live_...),
     // not just a Sanctum session token -- narrowed to exactly the four scopes
     // §45 defines, via api-key-scope. A Sanctum-authenticated user passes
     // through unscoped, same as every other route.
-    Route::middleware('auth:sanctum,api-key')->group(function () {
+    Route::middleware(['auth:sanctum,api-key', 'not-banned', 'touch-activity'])->group(function () {
         Route::get('resources', [ResourceController::class, 'index'])->middleware('api-key-scope:resources:read');
         Route::get('resources/{resource}', [ResourceController::class, 'show'])->middleware('api-key-scope:resources:read');
 
