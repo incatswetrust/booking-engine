@@ -35,10 +35,18 @@ class OrganizationController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $user = $request->user();
+        $memberOrganizations = $user->organizations()->get();
 
+        // A platform admin sees every organization (not just ones they're
+        // a member of), but only the ones from $memberOrganizations carry
+        // a real pivot row -- the rest correctly report my_role: null
+        // rather than a fabricated one, since they aren't actually a
+        // member of those.
         $organizations = $user->is_platform_admin
-            ? Organization::query()->get()
-            : $user->organizations()->get();
+            ? $memberOrganizations->concat(
+                Organization::query()->whereNotIn('id', $memberOrganizations->pluck('id'))->get()
+            )
+            : $memberOrganizations;
 
         return OrganizationResource::collection($organizations);
     }
@@ -81,11 +89,18 @@ class OrganizationController extends Controller
             new OA\Response(response: 403, description: 'Not a member of this organization'),
         ],
     )]
-    public function show(Organization $organization): OrganizationResource
+    public function show(Request $request, Organization $organization): OrganizationResource
     {
         $this->authorize('view', $organization);
 
-        return new OrganizationResource($organization);
+        // Route-model binding resolves $organization with no pivot
+        // attached, so my_role would come back null for every caller --
+        // re-resolve it through the user's own membership when one
+        // exists (a platform admin viewing an organization they don't
+        // belong to correctly still gets my_role: null).
+        $withPivot = $request->user()->organizations()->find($organization->id);
+
+        return new OrganizationResource($withPivot ?? $organization);
     }
 
     #[OA\Patch(

@@ -54,7 +54,8 @@ it('lets any member view the organization', function () {
 
     $this->getJson("/api/v1/organizations/{$organization->public_id}")
         ->assertOk()
-        ->assertJsonPath('data.id', $organization->public_id);
+        ->assertJsonPath('data.id', $organization->public_id)
+        ->assertJsonPath('data.my_role', Role::Staff->value);
 });
 
 it('forbids a non-member from viewing the organization', function () {
@@ -108,4 +109,48 @@ it('lets a platform admin view and update any organization', function () {
         ->patchJson("/api/v1/organizations/{$organization->public_id}", ['name' => 'New Name'])
         ->assertOk()
         ->assertJsonPath('data.name', 'New Name');
+});
+
+it('reports my_role: null for a platform admin viewing an organization they do not belong to', function () {
+    $organization = Organization::factory()->create();
+    $admin = User::factory()->create(['is_platform_admin' => true]);
+
+    $this->actingAs($admin, 'sanctum')
+        ->getJson("/api/v1/organizations/{$organization->public_id}")
+        ->assertOk()
+        ->assertJsonPath('data.my_role', null);
+});
+
+it('reports a platform admin\'s real role for an organization they actually own', function () {
+    $organization = Organization::factory()->create();
+    $admin = User::factory()->create(['is_platform_admin' => true]);
+    $organization->users()->attach($admin, ['role' => Role::OrganizationOwner->value]);
+
+    $this->actingAs($admin, 'sanctum')
+        ->getJson("/api/v1/organizations/{$organization->public_id}")
+        ->assertOk()
+        ->assertJsonPath('data.my_role', Role::OrganizationOwner->value);
+
+    $listResponse = $this->actingAs($admin, 'sanctum')
+        ->getJson('/api/v1/organizations')
+        ->assertOk();
+
+    $ownOrgEntry = collect($listResponse->json('data'))->firstWhere('id', $organization->public_id);
+    expect($ownOrgEntry['my_role'])->toBe(Role::OrganizationOwner->value);
+});
+
+it('lists every organization for a platform admin, with real my_role only for ones they belong to', function () {
+    $ownedOrganization = Organization::factory()->create();
+    $unrelatedOrganization = Organization::factory()->create();
+    $admin = User::factory()->create(['is_platform_admin' => true]);
+    $ownedOrganization->users()->attach($admin, ['role' => Role::OrganizationOwner->value]);
+
+    $response = $this->actingAs($admin, 'sanctum')
+        ->getJson('/api/v1/organizations')
+        ->assertOk()
+        ->assertJsonCount(2, 'data');
+
+    $byId = collect($response->json('data'))->keyBy('id');
+    expect($byId[$ownedOrganization->public_id]['my_role'] ?? null)->toBe(Role::OrganizationOwner->value)
+        ->and($byId[$unrelatedOrganization->public_id]['my_role'] ?? null)->toBeNull();
 });
