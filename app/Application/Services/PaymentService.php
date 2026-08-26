@@ -44,6 +44,20 @@ class PaymentService
             throw new ApiException(ErrorCode::ValidationFailed, "This booking's service does not require payment.", 422);
         }
 
+        $stripeAccount = $booking->organization->stripeAccount;
+
+        // Defense-in-depth: StoreServiceRequest/UpdateServiceRequest
+        // already block a service from being set to a paid payment_mode
+        // without a connected, charges-enabled account -- this only
+        // fires if that connection was disconnected afterward.
+        if ($stripeAccount === null || ! $stripeAccount->charges_enabled) {
+            throw new ApiException(
+                ErrorCode::ValidationFailed,
+                'This organization has not connected a Stripe account yet.',
+                422,
+            );
+        }
+
         if (! in_array($booking->status, [BookingStatus::AwaitingPayment, BookingStatus::Confirmed], true)) {
             throw new ApiException(
                 ErrorCode::ValidationFailed,
@@ -72,7 +86,7 @@ class PaymentService
         $this->auditLogger->log('payment.created', $payment, null, $payment->toArray());
 
         try {
-            $intent = $this->stripe->createPaymentIntent($payment);
+            $intent = $this->stripe->createPaymentIntent($payment, $stripeAccount->stripe_account_id);
         } catch (ApiErrorException $e) {
             $this->stateMachine->transition($payment, PaymentStatus::Failed, ['failure_reason' => $e->getMessage()]);
 
@@ -106,8 +120,18 @@ class PaymentService
             );
         }
 
+        $stripeAccount = $payment->booking->organization->stripeAccount;
+
+        if ($stripeAccount === null) {
+            // The organization disconnected Stripe after this payment was
+            // taken -- there's no account left to route the refund
+            // through. A genuine (if rare) operational dead end, not a
+            // validation mistake by the caller.
+            throw new ApiException(ErrorCode::PaymentFailed, 'The refund could not be processed: this organization no longer has a connected Stripe account.', 502);
+        }
+
         try {
-            $this->stripe->refund($payment, $amount);
+            $this->stripe->refund($payment, $stripeAccount->stripe_account_id, $amount);
         } catch (ApiErrorException $e) {
             throw new ApiException(ErrorCode::PaymentFailed, 'The refund could not be processed by the provider.', 502);
         }

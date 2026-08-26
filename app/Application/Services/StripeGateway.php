@@ -35,8 +35,13 @@ class StripeGateway
      * Idempotency-keyed on the Payment's own public_id, so a retried
      * request (e.g. the caller's HTTP call times out and retries) can
      * never create two PaymentIntents for the same Payment row.
+     *
+     * $stripeAccountId is the booking's organization's connected Stripe
+     * account (Stripe Connect, direct charges) -- the "Stripe-Account"
+     * header this puts on the request is what makes the money land on
+     * the organization's own account instead of the platform's.
      */
-    public function createPaymentIntent(Payment $payment): PaymentIntent
+    public function createPaymentIntent(Payment $payment, string $stripeAccountId): PaymentIntent
     {
         return $this->client->paymentIntents->create(
             [
@@ -47,11 +52,14 @@ class StripeGateway
                     'booking_id' => (string) $payment->booking->public_id,
                 ],
             ],
-            ['idempotency_key' => "payment-intent:{$payment->public_id}"],
+            [
+                'idempotency_key' => "payment-intent:{$payment->public_id}",
+                'stripe_account' => $stripeAccountId,
+            ],
         );
     }
 
-    public function refund(Payment $payment, ?string $amount = null): Refund
+    public function refund(Payment $payment, string $stripeAccountId, ?string $amount = null): Refund
     {
         $params = ['payment_intent' => $payment->provider_payment_id];
 
@@ -61,7 +69,10 @@ class StripeGateway
 
         return $this->client->refunds->create(
             $params,
-            ['idempotency_key' => 'refund:'.$payment->public_id.':'.($amount ?? 'full').':'.now()->timestamp],
+            [
+                'idempotency_key' => 'refund:'.$payment->public_id.':'.($amount ?? 'full').':'.now()->timestamp,
+                'stripe_account' => $stripeAccountId,
+            ],
         );
     }
 
@@ -71,6 +82,19 @@ class StripeGateway
     public function verifyWebhookSignature(string $payload, string $signatureHeader): Event
     {
         return Webhook::constructEvent($payload, $signatureHeader, config('services.stripe.webhook_secret'));
+    }
+
+    /**
+     * Same as verifyWebhookSignature(), but for the separate webhook
+     * endpoint registered to receive events from connected accounts
+     * (Stripe Connect) -- Stripe issues that endpoint its own signing
+     * secret, distinct from the platform's own webhook endpoint above.
+     *
+     * @throws SignatureVerificationException if the signature doesn't match
+     */
+    public function verifyConnectWebhookSignature(string $payload, string $signatureHeader): Event
+    {
+        return Webhook::constructEvent($payload, $signatureHeader, config('services.stripe.connect_webhook_secret'));
     }
 
     /**

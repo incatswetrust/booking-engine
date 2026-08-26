@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\ResourceGroupController;
 use App\Http\Controllers\Api\V1\ScheduleController;
 use App\Http\Controllers\Api\V1\ScheduleExceptionController;
 use App\Http\Controllers\Api\V1\ServiceController;
+use App\Http\Controllers\Api\V1\StripeConnectionController;
 use App\Http\Controllers\Api\V1\StripeWebhookController;
 use App\Http\Controllers\Api\V1\WaitlistController;
 use App\Http\Controllers\Api\V1\WebhookDeliveryController;
@@ -33,10 +34,18 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
     // Stripe-Signature (§32), a bearer token wouldn't make sense here.
     Route::post('webhooks/stripe', [StripeWebhookController::class, 'handle']);
 
+    // Separate Connect webhook endpoint, verified against its own signing
+    // secret -- Stripe events originating on a connected account (not the
+    // platform's own account) only arrive here, never on the route above.
+    Route::post('webhooks/stripe-connect', [StripeWebhookController::class, 'handleConnect']);
+
     // Not authenticated via Sanctum -- this is where Google's browser
     // redirect lands after the user grants access (§36); the "state"
     // query param (not a bearer token) is what proves it's legitimate.
     Route::get('calendar-connections/callback', [CalendarConnectionController::class, 'callback']);
+
+    // Same reasoning as the calendar callback above, for Stripe Connect.
+    Route::get('stripe-connections/callback', [StripeConnectionController::class, 'callback']);
 
     // §69 "public booking pages": no Sanctum session, no API key --
     // the unauthenticated surface an external booking widget/page is
@@ -83,6 +92,10 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
         Route::post('resources/{resource}/calendar-connection/authorize', [CalendarConnectionController::class, 'startAuthorization']);
         Route::get('resources/{resource}/calendar-connection', [CalendarConnectionController::class, 'show']);
         Route::delete('resources/{resource}/calendar-connection', [CalendarConnectionController::class, 'destroy']);
+
+        Route::post('organizations/{organization}/stripe-connection/authorize', [StripeConnectionController::class, 'startAuthorization']);
+        Route::get('organizations/{organization}/stripe-connection', [StripeConnectionController::class, 'show']);
+        Route::delete('organizations/{organization}/stripe-connection', [StripeConnectionController::class, 'destroy']);
 
         Route::post('booking-holds', [BookingHoldController::class, 'store'])
             ->middleware('idempotent');

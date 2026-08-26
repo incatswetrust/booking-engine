@@ -10,6 +10,8 @@ use App\Domain\Calendar\GoogleCalendarProvider;
 use App\Domain\Location\Location;
 use App\Domain\Organization\Organization;
 use App\Domain\Payment\Payment;
+use App\Domain\Payment\StripeAccount;
+use App\Domain\Payment\StripeConnectProvider;
 use App\Domain\Resource\Resource;
 use App\Domain\Resource\ResourceGroup;
 use App\Domain\Service\Service;
@@ -26,6 +28,7 @@ use App\Policies\PaymentPolicy;
 use App\Policies\ResourceGroupPolicy;
 use App\Policies\ResourcePolicy;
 use App\Policies\ServicePolicy;
+use App\Policies\StripeAccountPolicy;
 use App\Policies\WaitlistPolicy;
 use App\Policies\WebhookDeliveryPolicy;
 use App\Policies\WebhookEndpointPolicy;
@@ -56,6 +59,11 @@ class AppServiceProvider extends ServiceProvider
             (string) config('services.google.client_id'),
             (string) config('services.google.client_secret'),
         ));
+
+        $this->app->bind(StripeConnectProvider::class, fn () => new StripeConnectProvider(
+            (string) config('services.stripe.secret'),
+            (string) config('services.stripe.connect_client_id'),
+        ));
     }
 
     /**
@@ -83,6 +91,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(WebhookEndpoint::class, WebhookEndpointPolicy::class);
         Gate::policy(WebhookDelivery::class, WebhookDeliveryPolicy::class);
         Gate::policy(CalendarConnection::class, CalendarConnectionPolicy::class);
+        Gate::policy(StripeAccount::class, StripeAccountPolicy::class);
 
         // This app is API-only -- there's no "login" web route to redirect
         // to. Without this, Illuminate\Auth\Middleware\Authenticate resolves

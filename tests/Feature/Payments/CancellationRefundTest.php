@@ -21,6 +21,7 @@ it('fully refunds a paid payment when cancelling within the free cancellation wi
     });
 
     $organization = Organization::factory()->create(['settings' => ['cancellation_notice_minutes' => 1440]]);
+    connectStripeAccount($organization);
     $customer = User::factory()->create();
     [$resource, $service] = makeBookableResource($organization, 60);
 
@@ -58,6 +59,7 @@ it('only refunds late_cancellation_refund_percent of a paid payment on a late ca
     $organization = Organization::factory()->create([
         'settings' => ['cancellation_notice_minutes' => 1440, 'late_cancellation_refund_percent' => 50],
     ]);
+    connectStripeAccount($organization);
     $customer = User::factory()->create();
     [$resource, $service] = makeBookableResource($organization, 60);
 
@@ -118,6 +120,7 @@ it('still cancels the booking even if the automatic refund fails', function () {
     });
 
     $organization = Organization::factory()->create(['settings' => ['cancellation_notice_minutes' => 1440]]);
+    connectStripeAccount($organization);
     $customer = User::factory()->create();
     [$resource, $service] = makeBookableResource($organization, 60);
 
