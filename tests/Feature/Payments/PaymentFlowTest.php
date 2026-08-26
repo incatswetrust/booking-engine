@@ -51,6 +51,7 @@ it('creates a Payment and Stripe PaymentIntent via POST /bookings/{id}/payment',
     });
 
     $organization = Organization::factory()->create();
+    connectStripeAccount($organization);
     [$resource, $service] = makeBookableResource($organization, 60);
     $service->update(['payment_mode' => 'full']);
     $customer = User::factory()->create();
@@ -85,6 +86,7 @@ it('creates a Payment for the configured deposit amount when payment_mode is dep
     });
 
     $organization = Organization::factory()->create();
+    connectStripeAccount($organization);
     [$resource, $service] = makeBookableResource($organization, 60);
     $service->update(['payment_mode' => 'deposit', 'deposit_amount' => 25.75]);
     $customer = User::factory()->create();
@@ -152,6 +154,7 @@ it('allows a fresh payment attempt after the previous one failed', function () {
     });
 
     $organization = Organization::factory()->create();
+    connectStripeAccount($organization);
     [$resource, $service] = makeBookableResource($organization, 60);
     $service->update(['payment_mode' => 'full']);
     $customer = User::factory()->create();
@@ -201,6 +204,7 @@ it('fully refunds a paid payment', function () {
     });
 
     $organization = Organization::factory()->create();
+    connectStripeAccount($organization);
     actingAsMember($this, $organization, Role::OrganizationOwner);
     $payment = Payment::factory()->create([
         'amount' => 100.50,
@@ -221,6 +225,7 @@ it('partially refunds a paid payment when an amount is given', function () {
     });
 
     $organization = Organization::factory()->create();
+    connectStripeAccount($organization);
     actingAsMember($this, $organization, Role::OrganizationOwner);
     $payment = Payment::factory()->create([
         'amount' => 100.50,

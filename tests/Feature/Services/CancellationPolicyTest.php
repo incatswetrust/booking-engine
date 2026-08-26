@@ -20,6 +20,7 @@ it('lets a stricter service cancellation_policy override the organization defaul
     // requires 48h -- cancelling 30h ahead is within the org's window
     // but outside the service's own, stricter one.
     $organization = Organization::factory()->create(['settings' => ['cancellation_notice_minutes' => 1440, 'late_cancellation_refund_percent' => 50]]);
+    connectStripeAccount($organization);
     $customer = User::factory()->create();
     [$resource, $service] = makeBookableResource($organization, 60);
     $service->update(['cancellation_policy' => ['notice_minutes' => 2880]]);
@@ -53,6 +54,7 @@ it('lets a service override just refund_percent, keeping the organization\'s not
     });
 
     $organization = Organization::factory()->create(['settings' => ['cancellation_notice_minutes' => 1440, 'late_cancellation_refund_percent' => 50]]);
+    connectStripeAccount($organization);
     $customer = User::factory()->create();
     [$resource, $service] = makeBookableResource($organization, 60);
     $service->update(['cancellation_policy' => ['refund_percent' => 10]]);
@@ -82,6 +84,7 @@ it('falls back to the organization\'s policy when the service has none', functio
     });
 
     $organization = Organization::factory()->create(['settings' => ['cancellation_notice_minutes' => 1440, 'late_cancellation_refund_percent' => 50]]);
+    connectStripeAccount($organization);
     $customer = User::factory()->create();
     [$resource, $service] = makeBookableResource($organization, 60);
 
