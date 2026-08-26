@@ -55,12 +55,14 @@ class User extends Authenticatable
             ->withTimestamps();
     }
 
+    /**
+     * §61/§71: deliberately not platform-admin-aware -- a platform admin
+     * has no organization membership to grant this from, and their only
+     * real power is the /admin/* surface (guarded separately by
+     * EnsurePlatformAdmin), not elevated access to tenant business data.
+     */
     public function hasPermissionTo(Permission $permission, Organization $organization): bool
     {
-        if ($this->is_platform_admin) {
-            return true;
-        }
-
         $role = $organization->roleFor($this);
 
         return $role !== null && RolePermissions::grants($role, $permission);

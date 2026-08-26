@@ -97,28 +97,27 @@ it('forbids staff from updating the organization', function () {
     ])->assertStatus(403);
 });
 
-it('lets a platform admin view and update any organization', function () {
-    $organization = Organization::factory()->create(['name' => 'Old Name']);
-    $admin = User::factory()->create(['is_platform_admin' => true]);
-
-    $this->actingAs($admin, 'sanctum')
-        ->getJson("/api/v1/organizations/{$organization->public_id}")
-        ->assertOk();
-
-    $this->actingAs($admin, 'sanctum')
-        ->patchJson("/api/v1/organizations/{$organization->public_id}", ['name' => 'New Name'])
-        ->assertOk()
-        ->assertJsonPath('data.name', 'New Name');
-});
-
-it('reports my_role: null for a platform admin viewing an organization they do not belong to', function () {
+it('forbids a platform admin from viewing an organization they do not belong to', function () {
+    // §61/§71: a platform admin has no elevated access to tenant
+    // business content -- their only real power is /admin/* (users,
+    // ban/unban). Viewing/managing an organization requires actual
+    // membership, same as anyone else.
     $organization = Organization::factory()->create();
     $admin = User::factory()->create(['is_platform_admin' => true]);
 
     $this->actingAs($admin, 'sanctum')
         ->getJson("/api/v1/organizations/{$organization->public_id}")
-        ->assertOk()
-        ->assertJsonPath('data.my_role', null);
+        ->assertStatus(403)
+        ->assertJsonPath('error.code', 'PERMISSION_DENIED');
+});
+
+it('forbids a platform admin from updating an organization they do not belong to', function () {
+    $organization = Organization::factory()->create(['name' => 'Old Name']);
+    $admin = User::factory()->create(['is_platform_admin' => true]);
+
+    $this->actingAs($admin, 'sanctum')
+        ->patchJson("/api/v1/organizations/{$organization->public_id}", ['name' => 'New Name'])
+        ->assertStatus(403);
 });
 
 it('reports a platform admin\'s real role for an organization they actually own', function () {
@@ -139,18 +138,16 @@ it('reports a platform admin\'s real role for an organization they actually own'
     expect($ownOrgEntry['my_role'])->toBe(Role::OrganizationOwner->value);
 });
 
-it('lists every organization for a platform admin, with real my_role only for ones they belong to', function () {
+it('only lists organizations a platform admin actually belongs to, not every organization on the platform', function () {
     $ownedOrganization = Organization::factory()->create();
-    $unrelatedOrganization = Organization::factory()->create();
+    Organization::factory()->create(); // unrelated -- must not appear
     $admin = User::factory()->create(['is_platform_admin' => true]);
     $ownedOrganization->users()->attach($admin, ['role' => Role::OrganizationOwner->value]);
 
-    $response = $this->actingAs($admin, 'sanctum')
+    $this->actingAs($admin, 'sanctum')
         ->getJson('/api/v1/organizations')
         ->assertOk()
-        ->assertJsonCount(2, 'data');
-
-    $byId = collect($response->json('data'))->keyBy('id');
-    expect($byId[$ownedOrganization->public_id]['my_role'] ?? null)->toBe(Role::OrganizationOwner->value)
-        ->and($byId[$unrelatedOrganization->public_id]['my_role'] ?? null)->toBeNull();
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $ownedOrganization->public_id)
+        ->assertJsonPath('data.0.my_role', Role::OrganizationOwner->value);
 });

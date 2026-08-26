@@ -36,19 +36,18 @@ class WaitlistController extends Controller
 
         $query = WaitlistEntry::query()->with(['customer', 'service', 'resource']);
 
-        if (! $user->is_platform_admin) {
-            $readableOrgIds = $user->organizations
-                ->filter(fn (Organization $org) => $user->hasPermissionTo(Permission::BookingsRead, $org))
-                ->pluck('id');
+        // §61/§71: no platform-admin bypass -- see BookingController::index().
+        $readableOrgIds = $user->organizations
+            ->filter(fn (Organization $org) => $user->hasPermissionTo(Permission::BookingsRead, $org))
+            ->pluck('id');
 
-            $query->where(function ($q) use ($user, $readableOrgIds) {
-                $q->where('customer_id', $user->id);
+        $query->where(function ($q) use ($user, $readableOrgIds) {
+            $q->where('customer_id', $user->id);
 
-                if ($readableOrgIds->isNotEmpty()) {
-                    $q->orWhereHas('service', fn ($s) => $s->whereIn('organization_id', $readableOrgIds));
-                }
-            });
-        }
+            if ($readableOrgIds->isNotEmpty()) {
+                $q->orWhereHas('service', fn ($s) => $s->whereIn('organization_id', $readableOrgIds));
+            }
+        });
 
         return WaitlistEntryResource::collection($query->orderByDesc('created_at')->cursorPaginate(20)->withQueryString());
     }
