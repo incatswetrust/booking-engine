@@ -34,19 +34,18 @@ class PaymentController extends Controller
 
         $query = Payment::query()->with(['booking', 'booking.organization']);
 
-        if (! $user->is_platform_admin) {
-            $readableOrgIds = $user->organizations
-                ->filter(fn (Organization $org) => $user->hasPermissionTo(Permission::PaymentsRead, $org))
-                ->pluck('id');
+        // §61/§71: no platform-admin bypass -- see BookingController::index().
+        $readableOrgIds = $user->organizations
+            ->filter(fn (Organization $org) => $user->hasPermissionTo(Permission::PaymentsRead, $org))
+            ->pluck('id');
 
-            $query->whereHas('booking', function ($q) use ($user, $readableOrgIds) {
-                $q->where('customer_id', $user->id);
+        $query->whereHas('booking', function ($q) use ($user, $readableOrgIds) {
+            $q->where('customer_id', $user->id);
 
-                if ($readableOrgIds->isNotEmpty()) {
-                    $q->orWhereIn('organization_id', $readableOrgIds);
-                }
-            });
-        }
+            if ($readableOrgIds->isNotEmpty()) {
+                $q->orWhereIn('organization_id', $readableOrgIds);
+            }
+        });
 
         if ($request->filled('booking_id')) {
             $query->whereHas('booking', fn ($q) => $q->where('public_id', $request->query('booking_id')));

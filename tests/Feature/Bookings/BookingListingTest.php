@@ -71,7 +71,10 @@ it('filters bookings by status', function () {
         ->assertJsonPath('data.0.status', 'cancelled');
 });
 
-it('lets a platform admin see bookings across all organizations', function () {
+it('does not let a platform admin see bookings from organizations they do not belong to', function () {
+    // §61/§71: Platform Admin's only real power is /admin/* (users,
+    // ban/unban) -- no special visibility into tenant business data like
+    // bookings, even across every organization on the platform.
     $orgA = Organization::factory()->create();
     [$resourceA, $serviceA] = makeBookableResource($orgA);
     $orgB = Organization::factory()->create();
@@ -90,5 +93,21 @@ it('lets a platform admin see bookings across all organizations', function () {
 
     $this->actingAs($admin, 'sanctum')->getJson('/api/v1/bookings')
         ->assertOk()
-        ->assertJsonCount(2, 'data');
+        ->assertJsonCount(0, 'data');
+});
+
+it('lets a platform admin see bookings only for an organization they actually belong to', function () {
+    $organization = Organization::factory()->create();
+    [$resource, $service] = makeBookableResource($organization);
+    $admin = User::factory()->create(['is_platform_admin' => true]);
+    $organization->users()->attach($admin, ['role' => Role::OrganizationOwner->value]);
+
+    Booking::factory()->create([
+        'organization_id' => $organization->id, 'resource_id' => $resource->id,
+        'service_id' => $service->id, 'location_id' => $resource->location_id,
+    ]);
+
+    $this->actingAs($admin, 'sanctum')->getJson('/api/v1/bookings')
+        ->assertOk()
+        ->assertJsonCount(1, 'data');
 });
