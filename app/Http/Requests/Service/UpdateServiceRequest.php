@@ -73,6 +73,17 @@ class UpdateServiceRequest extends FormRequest
                 && (float) $this->input('deposit_amount') > (float) $effectivePrice) {
                 $validator->errors()->add('deposit_amount', 'The deposit amount cannot exceed the service price.');
             }
+
+            if ($effectivePaymentMode !== PaymentMode::None->value) {
+                $stripeAccount = $service->organization->stripeAccount;
+
+                if ($stripeAccount === null || ! $stripeAccount->charges_enabled) {
+                    $validator->errors()->add(
+                        'payment_mode',
+                        'Connect a Stripe account for this organization before enabling paid bookings for this service.',
+                    );
+                }
+            }
         });
     }
 }

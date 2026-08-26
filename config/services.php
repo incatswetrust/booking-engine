@@ -38,6 +38,13 @@ return [
     'stripe' => [
         'secret' => env('STRIPE_SECRET'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+        // Stripe Connect: connects an organization's own Stripe account
+        // via OAuth. Uses the platform's own STRIPE_SECRET above for the
+        // token exchange and all subsequent Connect API calls (via a
+        // per-request Stripe-Account header) -- there's no separate
+        // secret key per organization.
+        'connect_client_id' => env('STRIPE_CONNECT_CLIENT_ID'),
+        'connect_webhook_secret' => env('STRIPE_CONNECT_WEBHOOK_SECRET'),
     ],
 
     'telegram' => [

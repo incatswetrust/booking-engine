@@ -3,6 +3,7 @@
 use App\Domain\Auth\Role;
 use App\Domain\Location\Location;
 use App\Domain\Organization\Organization;
+use App\Domain\Payment\StripeAccount;
 use App\Domain\Resource\Resource;
 use App\Domain\Schedule\ScheduleRule;
 use App\Domain\Service\Service;
@@ -66,4 +67,15 @@ function makeBookableResource(Organization $organization, int $durationMinutes =
     }
 
     return [$resource, $service];
+}
+
+/**
+ * Gives an organization an active, charges-enabled Stripe Connect
+ * account -- the precondition every paid service/payment test needs
+ * now that PaymentService and StoreServiceRequest/UpdateServiceRequest
+ * require one.
+ */
+function connectStripeAccount(Organization $organization): StripeAccount
+{
+    return StripeAccount::factory()->for($organization)->create();
 }

@@ -70,6 +70,19 @@ class StoreServiceRequest extends FormRequest
                 && (float) $this->input('deposit_amount') > (float) $this->input('price')) {
                 $validator->errors()->add('deposit_amount', 'The deposit amount cannot exceed the service price.');
             }
+
+            $paymentMode = $this->input('payment_mode', PaymentMode::None->value);
+
+            if ($organization && $paymentMode !== PaymentMode::None->value) {
+                $stripeAccount = $organization->stripeAccount;
+
+                if ($stripeAccount === null || ! $stripeAccount->charges_enabled) {
+                    $validator->errors()->add(
+                        'payment_mode',
+                        'Connect a Stripe account for this organization before creating a paid service.',
+                    );
+                }
+            }
         });
     }
 }

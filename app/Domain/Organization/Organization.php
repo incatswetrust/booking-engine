@@ -7,6 +7,7 @@ use App\Domain\Auth\Role;
 use App\Domain\Concerns\Auditable;
 use App\Domain\Concerns\HasPublicId;
 use App\Domain\Location\Location;
+use App\Domain\Payment\StripeAccount;
 use App\Domain\Resource\Resource;
 use App\Domain\Resource\ResourceGroup;
 use App\Domain\Service\Service;
@@ -17,6 +18,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Organization extends Model
 {
@@ -138,5 +140,13 @@ class Organization extends Model
     public function webhookEndpoints(): HasMany
     {
         return $this->hasMany(WebhookEndpoint::class);
+    }
+
+    /**
+     * @return HasOne<StripeAccount, $this>
+     */
+    public function stripeAccount(): HasOne
+    {
+        return $this->hasOne(StripeAccount::class);
     }
 }

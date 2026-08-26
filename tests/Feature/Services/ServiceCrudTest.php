@@ -135,6 +135,7 @@ it('defaults a new service to payment_mode none', function () {
 
 it('creates a service requiring full payment', function () {
     $organization = Organization::factory()->create();
+    connectStripeAccount($organization);
     actingAsMember($this, $organization, Role::OrganizationOwner);
 
     $this->postJson('/api/v1/services', [
@@ -180,6 +181,7 @@ it('rejects a deposit_amount larger than the service price', function () {
 
 it('creates a service requiring a deposit within the service price', function () {
     $organization = Organization::factory()->create();
+    connectStripeAccount($organization);
     actingAsMember($this, $organization, Role::OrganizationOwner);
 
     $this->postJson('/api/v1/services', [
@@ -198,6 +200,7 @@ it('creates a service requiring a deposit within the service price', function ()
 
 it('updates a service to require payment', function () {
     $organization = Organization::factory()->create();
+    connectStripeAccount($organization);
     actingAsMember($this, $organization, Role::OrganizationOwner);
     $service = Service::factory()->for($organization)->create(['payment_mode' => 'none']);
 
